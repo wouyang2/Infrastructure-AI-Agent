@@ -121,12 +121,19 @@ Generated artifacts are ignored:
 
 ## Current Limitations And Future Work
 
-- The RAG corpus is synthetic/demo data; real maintenance records are needed for production-grade recommendations.
-- Severity logic is still mostly rule-based, with LLM support focused on rationale rather than final authority.
-- The Roboflow detector performance depends heavily on the trained model and dataset match.
-- Scheduling uses live weather, traffic, and event APIs, but does not yet include real crew calendars, permit systems, or road-network closure simulation.
-- PDF reports are generated, but future versions should include stronger evidence traceability, annotated image thumbnails, and video frame timelines.
-- The UI is demo-focused; production use would need authentication, upload size limits, persistent case storage, audit logs, and deployment hardening.
+The current project is a working prototype, not a production inspection platform. The most important future direction is to turn the demo intelligence into operational intelligence by replacing synthetic knowledge with real maintenance history and adding human review.
+
+Recommended next improvements:
+
+- **Replace synthetic RAG data with real infrastructure records.** Ingest real agency manuals, inspection standards, work orders, cost logs, repair durations, closure plans, permit rules, and post-repair outcomes. This is the highest-impact upgrade because maintenance planning and scheduling quality depend heavily on the knowledge base.
+- **Improve severity assessment.** Current severity logic is mostly rule-based, with LLM support focused on rationale. Future versions should use defect size, bounding-box area, affected structural element, crack width, spall area, asset criticality, traffic importance, and LLM-assisted structured severity review.
+- **Add persistent case storage.** Store inspection cases, uploaded media, observations, generated reports, selected schedules, and user decisions in a database instead of treating each run as temporary.
+- **Strengthen evidence traceability.** Add an evidence timeline showing notes, images, video frames, detector confidence, bounding boxes, RAG citations, and which agent used each piece of evidence.
+- **Expand vision evaluation.** Continue evaluating the Roboflow detector with per-class precision/recall, confusion matrices, per-defect threshold tuning, and slices by lighting, camera angle, defect size, and distance.
+- **Make scheduling more realistic.** Add crew calendars, equipment availability, permit lead times, lane closure constraints, detour impact, route/network effects, event calendars, weather windows, and repair-window optimization.
+- **Improve the product UI.** Add case history, saved reports, side-by-side annotated media, video frame thumbnails, editable recommendations, and a one-click demo preset.
+- **Harden deployment.** Add authentication, file size limits, secret management, background jobs for long video processing, observability, API rate-limit handling, and production logging.
+- **Add human-in-the-loop review.** Let engineers approve or edit detected defects, severity, repair requirement, maintenance plan, schedule selection, and final PDF content before the report is finalized.
 
 ## Resume Summary
 
