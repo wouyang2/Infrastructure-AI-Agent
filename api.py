@@ -39,6 +39,7 @@ UPLOADS_DIR = ARTIFACTS_DIR / "uploads"
 ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
+ALLOWED_VIDEO_UPLOAD_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
 
 
 class InspectionRequest(BaseModel):
@@ -114,6 +115,16 @@ class ImageUploadRequest(BaseModel):
 
 
 class ImageUploadResponse(BaseModel):
+    file_path: str
+    preview_url: str
+
+
+class VideoUploadRequest(BaseModel):
+    filename: str
+    content_base64: str
+
+
+class VideoUploadResponse(BaseModel):
     file_path: str
     preview_url: str
 
@@ -207,6 +218,33 @@ def upload_image(request: ImageUploadRequest) -> ImageUploadResponse:
     output_path = UPLOADS_DIR / output_name
     output_path.write_bytes(image_bytes)
     return ImageUploadResponse(
+        file_path=str(Path("artifacts") / "uploads" / output_name),
+        preview_url=f"/artifacts/uploads/{output_name}",
+    )
+
+
+@app.post("/uploads/videos", response_model=VideoUploadResponse)
+def upload_video(request: VideoUploadRequest) -> VideoUploadResponse:
+    original_name = Path(request.filename).name
+    extension = Path(original_name).suffix.lower()
+    if extension not in ALLOWED_VIDEO_UPLOAD_EXTENSIONS:
+        raise HTTPException(
+            status_code=400,
+            detail="Only MP4, MOV, AVI, and MKV video uploads are supported.",
+        )
+
+    try:
+        video_bytes = base64.b64decode(request.content_base64, validate=True)
+    except (binascii.Error, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="Invalid base64 video content.") from exc
+
+    if not video_bytes:
+        raise HTTPException(status_code=400, detail="Uploaded video is empty.")
+
+    output_name = f"{Path(original_name).stem[:60]}_{uuid4().hex[:10]}{extension}"
+    output_path = UPLOADS_DIR / output_name
+    output_path.write_bytes(video_bytes)
+    return VideoUploadResponse(
         file_path=str(Path("artifacts") / "uploads" / output_name),
         preview_url=f"/artifacts/uploads/{output_name}",
     )

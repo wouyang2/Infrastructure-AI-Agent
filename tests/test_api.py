@@ -85,6 +85,35 @@ def test_upload_image_rejects_unsupported_extension() -> None:
     assert "Only JPG, PNG, and WEBP" in response.json()["detail"]
 
 
+def test_upload_video_returns_local_artifact_path() -> None:
+    response = client.post(
+        "/uploads/videos",
+        json={
+            "filename": "bridge-walkthrough.mp4",
+            "content_base64": base64.b64encode(b"fake video bytes").decode(),
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["file_path"].startswith("artifacts/uploads/bridge-walkthrough_")
+    assert payload["file_path"].endswith(".mp4")
+    assert payload["preview_url"].startswith("/artifacts/uploads/bridge-walkthrough_")
+
+
+def test_upload_video_rejects_unsupported_extension() -> None:
+    response = client.post(
+        "/uploads/videos",
+        json={
+            "filename": "bridge-walkthrough.txt",
+            "content_base64": base64.b64encode(b"fake video bytes").decode(),
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Only MP4, MOV, AVI, and MKV" in response.json()["detail"]
+
+
 def test_create_inspection_returns_report() -> None:
     response = client.post(
         "/inspections",
