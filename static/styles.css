@@ -1,0 +1,553 @@
+:root {
+  color-scheme: light;
+  --bg: #f4f1ec;
+  --ink: #17201c;
+  --muted: #68706b;
+  --line: #d8d2c7;
+  --panel: #fffdf8;
+  --panel-strong: #f8faf7;
+  --green: #246b4b;
+  --blue: #245c7d;
+  --red: #9d3b36;
+  --gold: #9a6b1f;
+  --shadow: 0 18px 48px rgba(32, 38, 34, 0.12);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--bg);
+  color: var(--ink);
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+.app-shell {
+  min-height: 100vh;
+  padding: 18px;
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: minmax(330px, 410px) minmax(0, 1fr);
+  gap: 18px;
+  max-width: 1480px;
+  margin: 0 auto;
+}
+
+.control-panel,
+.result-panel,
+.panel,
+.metrics-grid article {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+}
+
+.control-panel {
+  position: sticky;
+  top: 18px;
+  height: calc(100vh - 36px);
+  overflow: auto;
+  padding: 20px;
+}
+
+.brand-block {
+  margin-bottom: 18px;
+}
+
+.eyebrow {
+  margin: 0 0 4px;
+  color: var(--green);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  letter-spacing: 0;
+}
+
+h1 {
+  font-size: 1.8rem;
+}
+
+h2 {
+  font-size: 1.4rem;
+}
+
+h3 {
+  font-size: 1rem;
+  margin-bottom: 12px;
+}
+
+form {
+  display: grid;
+  gap: 13px;
+}
+
+label {
+  display: grid;
+  gap: 6px;
+  color: #3e4741;
+  font-size: 0.83rem;
+  font-weight: 700;
+}
+
+input,
+select,
+textarea {
+  width: 100%;
+  border: 1px solid #c9c2b7;
+  border-radius: 6px;
+  background: #ffffff;
+  color: var(--ink);
+  padding: 10px 11px;
+  outline: none;
+}
+
+textarea {
+  resize: vertical;
+}
+
+.drop-zone {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 92px;
+  align-items: center;
+  gap: 12px;
+  min-height: 96px;
+  border: 1px dashed #9fa89d;
+  border-radius: 8px;
+  background: #f8faf7;
+  padding: 14px;
+  color: var(--muted);
+}
+
+.drop-zone.dragover {
+  border-color: var(--green);
+  background: #edf5ef;
+  box-shadow: 0 0 0 3px rgba(36, 107, 75, 0.12);
+}
+
+.drop-zone input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.drop-zone strong,
+.drop-zone span {
+  display: block;
+}
+
+.drop-zone strong {
+  color: var(--ink);
+  font-size: 0.92rem;
+}
+
+.drop-zone span {
+  margin-top: 3px;
+  font-size: 0.8rem;
+  line-height: 1.35;
+}
+
+.drop-zone img {
+  width: 92px;
+  aspect-ratio: 1;
+  object-fit: cover;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  border-color: var(--green);
+  box-shadow: 0 0 0 3px rgba(36, 107, 75, 0.15);
+}
+
+.field-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.field-grid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+button {
+  border: 0;
+  border-radius: 6px;
+  padding: 12px 14px;
+  background: var(--green);
+  color: #fff;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.secondary-button {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--green);
+  padding: 9px 12px;
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+.result-panel {
+  min-width: 0;
+  padding: 20px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.status-pill {
+  min-width: 86px;
+  border-radius: 999px;
+  padding: 7px 10px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.status-pill.idle {
+  background: #ece7dc;
+  color: #5e5a51;
+}
+
+.status-pill.running {
+  background: #dcebf2;
+  color: var(--blue);
+}
+
+.status-pill.done {
+  background: #e0eee7;
+  color: var(--green);
+}
+
+.status-pill.error {
+  background: #f3dfdd;
+  color: var(--red);
+}
+
+.sample-strip {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(118px, 150px);
+  gap: 10px;
+  overflow-x: auto;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.sample-card {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+  background: #fff;
+  cursor: pointer;
+}
+
+.sample-card img {
+  display: block;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+}
+
+.sample-card div {
+  padding: 8px;
+  font-size: 0.76rem;
+  color: var(--muted);
+}
+
+.sample-card strong {
+  display: block;
+  color: var(--ink);
+  text-transform: capitalize;
+}
+
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.metrics-grid article {
+  padding: 14px;
+  box-shadow: none;
+}
+
+.metrics-grid span {
+  display: block;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.metrics-grid strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 1.35rem;
+}
+
+.content-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.panel {
+  padding: 16px;
+  box-shadow: none;
+  margin-bottom: 14px;
+}
+
+.list-block {
+  display: grid;
+  gap: 9px;
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.item {
+  border-left: 4px solid var(--green);
+  background: var(--panel-strong);
+  padding: 10px 11px;
+  border-radius: 4px;
+}
+
+.item.warn {
+  border-left-color: var(--gold);
+}
+
+.item strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.item p {
+  margin: 0;
+  color: #3f4943;
+  line-height: 1.45;
+}
+
+.report-panel {
+  margin-bottom: 0;
+}
+
+.report-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.report-header-row h3 {
+  margin-bottom: 0;
+}
+
+.formal-report {
+  background: #ffffff;
+  color: #1f2823;
+  border: 1px solid #d8d2c7;
+  border-radius: 6px;
+  padding: 28px;
+  min-height: 460px;
+}
+
+.empty-report {
+  color: var(--muted);
+}
+
+.report-title-block {
+  border-bottom: 2px solid #1f2823;
+  padding-bottom: 16px;
+  margin-bottom: 18px;
+}
+
+.report-title-block h2 {
+  font-size: 1.7rem;
+  margin-bottom: 8px;
+}
+
+.report-meta {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.report-meta div,
+.report-callout {
+  border: 1px solid #d8d2c7;
+  border-radius: 4px;
+  padding: 10px;
+  background: #fbfaf6;
+}
+
+.report-meta span,
+.report-section-label {
+  display: block;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.report-meta strong {
+  display: block;
+  margin-top: 3px;
+  font-size: 0.95rem;
+}
+
+.report-section {
+  margin-top: 20px;
+  break-inside: avoid;
+}
+
+.report-section h4 {
+  margin: 0 0 9px;
+  font-size: 1rem;
+  border-bottom: 1px solid #d8d2c7;
+  padding-bottom: 6px;
+}
+
+.report-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.86rem;
+}
+
+.report-table th,
+.report-table td {
+  border: 1px solid #d8d2c7;
+  padding: 8px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.report-table th {
+  background: #f1eee8;
+  font-size: 0.74rem;
+  text-transform: uppercase;
+}
+
+.report-list {
+  margin: 0;
+  padding-left: 18px;
+  line-height: 1.5;
+}
+
+.report-callout {
+  margin-bottom: 10px;
+}
+
+.report-narrative {
+  white-space: pre-wrap;
+  line-height: 1.5;
+  font-size: 0.9rem;
+  color: #36423b;
+}
+
+@media (max-width: 980px) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .control-panel {
+    position: static;
+    height: auto;
+  }
+
+  .metrics-grid,
+  .content-grid,
+  .report-two-column,
+  .report-meta {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 560px) {
+  .app-shell {
+    padding: 10px;
+  }
+
+  .field-grid.two {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media print {
+  body {
+    background: #ffffff;
+  }
+
+  .control-panel,
+  .toolbar,
+  .sample-strip,
+  .metrics-grid,
+  .content-grid,
+  .panel:not(.report-panel),
+  .report-header-row {
+    display: none !important;
+  }
+
+  .app-shell,
+  .result-panel,
+  .workspace,
+  .report-panel {
+    display: block;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    box-shadow: none;
+    background: #ffffff;
+  }
+
+  .formal-report {
+    border: 0;
+    padding: 0;
+  }
+}

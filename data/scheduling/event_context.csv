@@ -1,0 +1,21 @@
+window_id,event_title,event_distance_miles,expected_attendance,event_risk_score,rationale
+WIN-001,none,0,0,0,No known event conflict.
+WIN-002,minor downtown event,3.2,1200,2,Nearby event may increase traffic demand or restrict detour options.
+WIN-003,stadium event,1.1,42000,9,Nearby event may increase traffic demand or restrict detour options.
+WIN-004,regional festival,5.5,9000,5,Nearby event may increase traffic demand or restrict detour options.
+WIN-005,none,0,0,0,No known event conflict.
+WIN-006,minor downtown event,3.2,1200,2,Nearby event may increase traffic demand or restrict detour options.
+WIN-007,stadium event,1.1,42000,9,Nearby event may increase traffic demand or restrict detour options.
+WIN-008,regional festival,5.5,9000,5,Nearby event may increase traffic demand or restrict detour options.
+WIN-009,none,0,0,0,No known event conflict.
+WIN-010,minor downtown event,3.2,1200,2,Nearby event may increase traffic demand or restrict detour options.
+WIN-011,stadium event,1.1,42000,9,Nearby event may increase traffic demand or restrict detour options.
+WIN-012,regional festival,5.5,9000,5,Nearby event may increase traffic demand or restrict detour options.
+WIN-013,none,0,0,0,No known event conflict.
+WIN-014,minor downtown event,3.2,1200,2,Nearby event may increase traffic demand or restrict detour options.
+WIN-015,stadium event,1.1,42000,9,Nearby event may increase traffic demand or restrict detour options.
+WIN-016,regional festival,5.5,9000,5,Nearby event may increase traffic demand or restrict detour options.
+WIN-017,none,0,0,0,No known event conflict.
+WIN-018,minor downtown event,3.2,1200,2,Nearby event may increase traffic demand or restrict detour options.
+WIN-019,stadium event,1.1,42000,9,Nearby event may increase traffic demand or restrict detour options.
+WIN-020,regional festival,5.5,9000,5,Nearby event may increase traffic demand or restrict detour options.

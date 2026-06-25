@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Infrastructure AI Agent</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="workspace">
+        <aside class="control-panel">
+          <div class="brand-block">
+            <p class="eyebrow">Infrastructure AI Agent</p>
+            <h1>Inspection Workflow</h1>
+          </div>
+
+          <form id="inspection-form">
+            <div class="field-grid two">
+              <label>
+                Asset ID
+                <input name="asset_id" value="DEMO-BRIDGE-001" />
+              </label>
+              <label>
+                Criticality
+                <select name="criticality">
+                  <option value="high" selected>High</option>
+                  <option value="critical">Critical</option>
+                  <option value="medium">Medium</option>
+                  <option value="low">Low</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Asset Name
+              <input name="asset_name" value="Demo Bridge Span" />
+            </label>
+
+            <label>
+              Location
+              <input name="location" value="Midtown corridor" />
+            </label>
+
+            <div class="field-grid two">
+              <label>
+                Latitude
+                <input name="latitude" type="number" step="0.000001" value="40.7505" />
+              </label>
+              <label>
+                Longitude
+                <input name="longitude" type="number" step="0.000001" value="-73.9934" />
+              </label>
+            </div>
+
+            <label>
+              Inspection Notes
+              <textarea name="notes" rows="5">Inspection found spalling near an expansion joint with loose concrete and exposed substrate. No immediate closure is in place.</textarea>
+            </label>
+
+            <label>
+              Image Path
+              <input name="image_path" placeholder="data/bridge_image/example.jpg" />
+            </label>
+
+            <div class="drop-zone" id="drop-zone">
+              <input id="image-upload" type="file" accept="image/*" />
+              <div>
+                <strong>Drop inspection image</strong>
+                <span id="upload-status">or click to upload a bridge photo</span>
+              </div>
+              <img id="upload-preview" alt="" hidden />
+            </div>
+
+            <div class="field-grid two">
+              <label>
+                Image Analyzer
+                <select name="image_analyzer">
+                  <option value="heuristic">Heuristic</option>
+                  <option value="metadata" selected>Metadata</option>
+                  <option value="roboflow">Roboflow</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </label>
+              <label>
+                Embeddings
+                <select name="embedding_backend">
+                  <option value="fake" selected>Fake</option>
+                  <option value="openai">OpenAI</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="field-grid two">
+              <label>
+                Planning
+                <select name="planning_mode">
+                  <option value="deterministic" selected>Deterministic</option>
+                  <option value="llm">LLM</option>
+                </select>
+              </label>
+              <label>
+                Scheduling
+                <select name="scheduling_mode">
+                  <option value="llm" selected>LLM</option>
+                  <option value="deterministic">Deterministic</option>
+                </select>
+              </label>
+            </div>
+
+            <label>
+              Report
+              <select name="report_mode">
+                <option value="llm" selected>LLM polished</option>
+                <option value="deterministic">Deterministic</option>
+              </select>
+            </label>
+
+            <div class="field-grid two">
+              <label>
+                Context
+                <select name="schedule_context_mode">
+                  <option value="mock" selected>Mock</option>
+                  <option value="live">Live APIs</option>
+                </select>
+              </label>
+              <label>
+                Events
+                <select name="event_provider">
+                  <option value="mock" selected>Mock</option>
+                  <option value="ticketmaster">Ticketmaster</option>
+                </select>
+              </label>
+            </div>
+
+            <button type="submit" id="run-button">Run Inspection</button>
+          </form>
+        </aside>
+
+        <section class="result-panel">
+          <div class="toolbar">
+            <div>
+              <p class="eyebrow">Run Output</p>
+              <h2 id="case-title">Ready for inspection</h2>
+            </div>
+            <div id="status-pill" class="status-pill idle">Idle</div>
+          </div>
+
+          <div class="sample-strip" id="sample-strip" aria-label="Sample bridge images"></div>
+
+          <div class="metrics-grid">
+            <article>
+              <span>Severity</span>
+              <strong id="metric-severity">-</strong>
+            </article>
+            <article>
+              <span>Repair</span>
+              <strong id="metric-repair">-</strong>
+            </article>
+            <article>
+              <span>Schedule</span>
+              <strong id="metric-schedule">-</strong>
+            </article>
+            <article>
+              <span>Context Risk</span>
+              <strong id="metric-risk">-</strong>
+            </article>
+          </div>
+
+          <div class="content-grid">
+            <section class="panel">
+              <h3>Observations</h3>
+              <div id="observations" class="list-block muted">No run yet.</div>
+            </section>
+
+            <section class="panel">
+              <h3>RAG & Scheduling Context</h3>
+              <div id="context" class="list-block muted">No run yet.</div>
+            </section>
+          </div>
+
+          <section class="panel">
+            <h3>Maintenance Plan</h3>
+            <div id="plan" class="list-block muted">No run yet.</div>
+          </section>
+
+          <section class="panel report-panel">
+            <div class="report-header-row">
+              <h3>Formal Report Preview</h3>
+              <button type="button" id="export-report-button" class="secondary-button" disabled>
+                Export Report
+              </button>
+            </div>
+            <article id="formal-report" class="formal-report">
+              <div class="empty-report">Run an inspection to generate the final report.</div>
+            </article>
+          </section>
+        </section>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

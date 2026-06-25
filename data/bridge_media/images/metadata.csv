@@ -1,0 +1,101 @@
+image_id,file_path,asset_id,asset_type,component,defect_type,severity_label,location_on_asset,confidence_label,inspection_date,notes
+IMG-0001,bridge_media/images/files/IMG-0001.jpg,BR-001,bridge,deck,spalling,low,deck zone 1,0.72,2025-08-01,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0002,bridge_media/images/files/IMG-0002.jpg,BR-002,bridge,expansion_joint,crack,medium,expansion_joint zone 2,0.73,2025-08-02,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0003,bridge_media/images/files/IMG-0003.jpg,BR-003,bridge,girder,corrosion,high,girder zone 3,0.74,2025-08-03,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0004,bridge_media/images/files/IMG-0004.jpg,BR-004,bridge,parapet,exposed_rebar,low,parapet zone 4,0.76,2025-08-04,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0005,bridge_media/images/files/IMG-0005.jpg,BR-005,bridge,pier_cap,joint_damage,medium,pier_cap zone 5,0.77,2025-08-05,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0006,bridge_media/images/files/IMG-0006.jpg,BR-006,bridge,bearing_area,water_leak,high,bearing_area zone 1,0.78,2025-08-06,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0007,bridge_media/images/files/IMG-0007.jpg,BR-007,bridge,deck,normal/no_defect,none,deck zone 2,0.79,2025-08-07,No visible defect in supplied inspection image.
+IMG-0008,bridge_media/images/files/IMG-0008.jpg,BR-008,bridge,expansion_joint,spalling,medium,expansion_joint zone 3,0.8,2025-08-08,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0009,bridge_media/images/files/IMG-0009.jpg,BR-009,bridge,girder,crack,high,girder zone 4,0.82,2025-08-09,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0010,bridge_media/images/files/IMG-0010.jpg,BR-010,bridge,parapet,corrosion,low,parapet zone 5,0.83,2025-08-10,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0011,bridge_media/images/files/IMG-0011.jpg,BR-011,bridge,pier_cap,exposed_rebar,medium,pier_cap zone 1,0.84,2025-08-11,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0012,bridge_media/images/files/IMG-0012.jpg,BR-012,bridge,bearing_area,joint_damage,high,bearing_area zone 2,0.85,2025-08-12,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0013,bridge_media/images/files/IMG-0013.jpg,BR-001,bridge,deck,water_leak,low,deck zone 3,0.86,2025-08-13,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0014,bridge_media/images/files/IMG-0014.jpg,BR-002,bridge,expansion_joint,normal/no_defect,none,expansion_joint zone 4,0.88,2025-08-14,No visible defect in supplied inspection image.
+IMG-0015,bridge_media/images/files/IMG-0015.jpg,BR-003,bridge,girder,spalling,high,girder zone 5,0.89,2025-08-15,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0016,bridge_media/images/files/IMG-0016.jpg,BR-004,bridge,parapet,crack,low,parapet zone 1,0.9,2025-08-16,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0017,bridge_media/images/files/IMG-0017.jpg,BR-005,bridge,pier_cap,corrosion,medium,pier_cap zone 2,0.91,2025-08-17,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0018,bridge_media/images/files/IMG-0018.jpg,BR-006,bridge,bearing_area,exposed_rebar,high,bearing_area zone 3,0.92,2025-08-18,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0019,bridge_media/images/files/IMG-0019.jpg,BR-007,bridge,deck,joint_damage,low,deck zone 4,0.94,2025-08-19,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0020,bridge_media/images/files/IMG-0020.jpg,BR-008,bridge,expansion_joint,water_leak,medium,expansion_joint zone 5,0.95,2025-08-20,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0021,bridge_media/images/files/IMG-0021.jpg,BR-009,bridge,girder,normal/no_defect,none,girder zone 1,0.72,2025-08-21,No visible defect in supplied inspection image.
+IMG-0022,bridge_media/images/files/IMG-0022.jpg,BR-010,bridge,parapet,spalling,low,parapet zone 2,0.73,2025-08-22,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0023,bridge_media/images/files/IMG-0023.jpg,BR-011,bridge,pier_cap,crack,medium,pier_cap zone 3,0.74,2025-08-23,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0024,bridge_media/images/files/IMG-0024.jpg,BR-012,bridge,bearing_area,corrosion,high,bearing_area zone 4,0.76,2025-08-24,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0025,bridge_media/images/files/IMG-0025.jpg,BR-001,bridge,deck,exposed_rebar,low,deck zone 5,0.77,2025-08-25,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0026,bridge_media/images/files/IMG-0026.jpg,BR-002,bridge,expansion_joint,joint_damage,medium,expansion_joint zone 1,0.78,2025-08-26,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0027,bridge_media/images/files/IMG-0027.jpg,BR-003,bridge,girder,water_leak,high,girder zone 2,0.79,2025-08-27,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0028,bridge_media/images/files/IMG-0028.jpg,BR-004,bridge,parapet,normal/no_defect,none,parapet zone 3,0.8,2025-08-28,No visible defect in supplied inspection image.
+IMG-0029,bridge_media/images/files/IMG-0029.jpg,BR-005,bridge,pier_cap,spalling,medium,pier_cap zone 4,0.82,2025-08-29,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0030,bridge_media/images/files/IMG-0030.jpg,BR-006,bridge,bearing_area,crack,high,bearing_area zone 5,0.83,2025-08-30,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0031,bridge_media/images/files/IMG-0031.jpg,BR-007,bridge,deck,corrosion,low,deck zone 1,0.84,2025-08-31,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0032,bridge_media/images/files/IMG-0032.jpg,BR-008,bridge,expansion_joint,exposed_rebar,medium,expansion_joint zone 2,0.85,2025-09-01,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0033,bridge_media/images/files/IMG-0033.jpg,BR-009,bridge,girder,joint_damage,high,girder zone 3,0.86,2025-09-02,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0034,bridge_media/images/files/IMG-0034.jpg,BR-010,bridge,parapet,water_leak,low,parapet zone 4,0.88,2025-09-03,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0035,bridge_media/images/files/IMG-0035.jpg,BR-011,bridge,pier_cap,normal/no_defect,none,pier_cap zone 5,0.89,2025-09-04,No visible defect in supplied inspection image.
+IMG-0036,bridge_media/images/files/IMG-0036.jpg,BR-012,bridge,bearing_area,spalling,high,bearing_area zone 1,0.9,2025-09-05,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0037,bridge_media/images/files/IMG-0037.jpg,BR-001,bridge,deck,crack,low,deck zone 2,0.91,2025-09-06,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0038,bridge_media/images/files/IMG-0038.jpg,BR-002,bridge,expansion_joint,corrosion,medium,expansion_joint zone 3,0.92,2025-09-07,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0039,bridge_media/images/files/IMG-0039.jpg,BR-003,bridge,girder,exposed_rebar,high,girder zone 4,0.94,2025-09-08,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0040,bridge_media/images/files/IMG-0040.jpg,BR-004,bridge,parapet,joint_damage,low,parapet zone 5,0.95,2025-09-09,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0041,bridge_media/images/files/IMG-0041.jpg,BR-005,bridge,pier_cap,water_leak,medium,pier_cap zone 1,0.72,2025-09-10,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0042,bridge_media/images/files/IMG-0042.jpg,BR-006,bridge,bearing_area,normal/no_defect,none,bearing_area zone 2,0.73,2025-09-11,No visible defect in supplied inspection image.
+IMG-0043,bridge_media/images/files/IMG-0043.jpg,BR-007,bridge,deck,spalling,low,deck zone 3,0.74,2025-09-12,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0044,bridge_media/images/files/IMG-0044.jpg,BR-008,bridge,expansion_joint,crack,medium,expansion_joint zone 4,0.76,2025-09-13,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0045,bridge_media/images/files/IMG-0045.jpg,BR-009,bridge,girder,corrosion,high,girder zone 5,0.77,2025-09-14,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0046,bridge_media/images/files/IMG-0046.jpg,BR-010,bridge,parapet,exposed_rebar,low,parapet zone 1,0.78,2025-08-01,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0047,bridge_media/images/files/IMG-0047.jpg,BR-011,bridge,pier_cap,joint_damage,medium,pier_cap zone 2,0.79,2025-08-02,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0048,bridge_media/images/files/IMG-0048.jpg,BR-012,bridge,bearing_area,water_leak,high,bearing_area zone 3,0.8,2025-08-03,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0049,bridge_media/images/files/IMG-0049.jpg,BR-001,bridge,deck,normal/no_defect,none,deck zone 4,0.82,2025-08-04,No visible defect in supplied inspection image.
+IMG-0050,bridge_media/images/files/IMG-0050.jpg,BR-002,bridge,expansion_joint,spalling,medium,expansion_joint zone 5,0.83,2025-08-05,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0051,bridge_media/images/files/IMG-0051.jpg,BR-003,bridge,girder,crack,high,girder zone 1,0.84,2025-08-06,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0052,bridge_media/images/files/IMG-0052.jpg,BR-004,bridge,parapet,corrosion,low,parapet zone 2,0.85,2025-08-07,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0053,bridge_media/images/files/IMG-0053.jpg,BR-005,bridge,pier_cap,exposed_rebar,medium,pier_cap zone 3,0.86,2025-08-08,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0054,bridge_media/images/files/IMG-0054.jpg,BR-006,bridge,bearing_area,joint_damage,high,bearing_area zone 4,0.88,2025-08-09,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0055,bridge_media/images/files/IMG-0055.jpg,BR-007,bridge,deck,water_leak,low,deck zone 5,0.89,2025-08-10,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0056,bridge_media/images/files/IMG-0056.jpg,BR-008,bridge,expansion_joint,normal/no_defect,none,expansion_joint zone 1,0.9,2025-08-11,No visible defect in supplied inspection image.
+IMG-0057,bridge_media/images/files/IMG-0057.jpg,BR-009,bridge,girder,spalling,high,girder zone 2,0.91,2025-08-12,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0058,bridge_media/images/files/IMG-0058.jpg,BR-010,bridge,parapet,crack,low,parapet zone 3,0.92,2025-08-13,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0059,bridge_media/images/files/IMG-0059.jpg,BR-011,bridge,pier_cap,corrosion,medium,pier_cap zone 4,0.94,2025-08-14,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0060,bridge_media/images/files/IMG-0060.jpg,BR-012,bridge,bearing_area,exposed_rebar,high,bearing_area zone 5,0.95,2025-08-15,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0061,bridge_media/images/files/IMG-0061.jpg,BR-001,bridge,deck,joint_damage,low,deck zone 1,0.72,2025-08-16,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0062,bridge_media/images/files/IMG-0062.jpg,BR-002,bridge,expansion_joint,water_leak,medium,expansion_joint zone 2,0.73,2025-08-17,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0063,bridge_media/images/files/IMG-0063.jpg,BR-003,bridge,girder,normal/no_defect,none,girder zone 3,0.74,2025-08-18,No visible defect in supplied inspection image.
+IMG-0064,bridge_media/images/files/IMG-0064.jpg,BR-004,bridge,parapet,spalling,low,parapet zone 4,0.76,2025-08-19,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0065,bridge_media/images/files/IMG-0065.jpg,BR-005,bridge,pier_cap,crack,medium,pier_cap zone 5,0.77,2025-08-20,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0066,bridge_media/images/files/IMG-0066.jpg,BR-006,bridge,bearing_area,corrosion,high,bearing_area zone 1,0.78,2025-08-21,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0067,bridge_media/images/files/IMG-0067.jpg,BR-007,bridge,deck,exposed_rebar,low,deck zone 2,0.79,2025-08-22,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0068,bridge_media/images/files/IMG-0068.jpg,BR-008,bridge,expansion_joint,joint_damage,medium,expansion_joint zone 3,0.8,2025-08-23,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0069,bridge_media/images/files/IMG-0069.jpg,BR-009,bridge,girder,water_leak,high,girder zone 4,0.82,2025-08-24,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0070,bridge_media/images/files/IMG-0070.jpg,BR-010,bridge,parapet,normal/no_defect,none,parapet zone 5,0.83,2025-08-25,No visible defect in supplied inspection image.
+IMG-0071,bridge_media/images/files/IMG-0071.jpg,BR-011,bridge,pier_cap,spalling,medium,pier_cap zone 1,0.84,2025-08-26,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0072,bridge_media/images/files/IMG-0072.jpg,BR-012,bridge,bearing_area,crack,high,bearing_area zone 2,0.85,2025-08-27,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0073,bridge_media/images/files/IMG-0073.jpg,BR-001,bridge,deck,corrosion,low,deck zone 3,0.86,2025-08-28,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0074,bridge_media/images/files/IMG-0074.jpg,BR-002,bridge,expansion_joint,exposed_rebar,medium,expansion_joint zone 4,0.88,2025-08-29,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0075,bridge_media/images/files/IMG-0075.jpg,BR-003,bridge,girder,joint_damage,high,girder zone 5,0.89,2025-08-30,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0076,bridge_media/images/files/IMG-0076.jpg,BR-004,bridge,parapet,water_leak,low,parapet zone 1,0.9,2025-08-31,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0077,bridge_media/images/files/IMG-0077.jpg,BR-005,bridge,pier_cap,normal/no_defect,none,pier_cap zone 2,0.91,2025-09-01,No visible defect in supplied inspection image.
+IMG-0078,bridge_media/images/files/IMG-0078.jpg,BR-006,bridge,bearing_area,spalling,high,bearing_area zone 3,0.92,2025-09-02,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0079,bridge_media/images/files/IMG-0079.jpg,BR-007,bridge,deck,crack,low,deck zone 4,0.94,2025-09-03,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0080,bridge_media/images/files/IMG-0080.jpg,BR-008,bridge,expansion_joint,corrosion,medium,expansion_joint zone 5,0.95,2025-09-04,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0081,bridge_media/images/files/IMG-0081.jpg,BR-009,bridge,girder,exposed_rebar,high,girder zone 1,0.72,2025-09-05,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0082,bridge_media/images/files/IMG-0082.jpg,BR-010,bridge,parapet,joint_damage,low,parapet zone 2,0.73,2025-09-06,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0083,bridge_media/images/files/IMG-0083.jpg,BR-011,bridge,pier_cap,water_leak,medium,pier_cap zone 3,0.74,2025-09-07,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0084,bridge_media/images/files/IMG-0084.jpg,BR-012,bridge,bearing_area,normal/no_defect,none,bearing_area zone 4,0.76,2025-09-08,No visible defect in supplied inspection image.
+IMG-0085,bridge_media/images/files/IMG-0085.jpg,BR-001,bridge,deck,spalling,low,deck zone 5,0.77,2025-09-09,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0086,bridge_media/images/files/IMG-0086.jpg,BR-002,bridge,expansion_joint,crack,medium,expansion_joint zone 1,0.78,2025-09-10,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0087,bridge_media/images/files/IMG-0087.jpg,BR-003,bridge,girder,corrosion,high,girder zone 2,0.79,2025-09-11,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0088,bridge_media/images/files/IMG-0088.jpg,BR-004,bridge,parapet,exposed_rebar,low,parapet zone 3,0.8,2025-09-12,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0089,bridge_media/images/files/IMG-0089.jpg,BR-005,bridge,pier_cap,joint_damage,medium,pier_cap zone 4,0.82,2025-09-13,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0090,bridge_media/images/files/IMG-0090.jpg,BR-006,bridge,bearing_area,water_leak,high,bearing_area zone 5,0.83,2025-09-14,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0091,bridge_media/images/files/IMG-0091.jpg,BR-007,bridge,deck,normal/no_defect,none,deck zone 1,0.84,2025-08-01,No visible defect in supplied inspection image.
+IMG-0092,bridge_media/images/files/IMG-0092.jpg,BR-008,bridge,expansion_joint,spalling,medium,expansion_joint zone 2,0.85,2025-08-02,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0093,bridge_media/images/files/IMG-0093.jpg,BR-009,bridge,girder,crack,high,girder zone 3,0.86,2025-08-03,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0094,bridge_media/images/files/IMG-0094.jpg,BR-010,bridge,parapet,corrosion,low,parapet zone 4,0.88,2025-08-04,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0095,bridge_media/images/files/IMG-0095.jpg,BR-011,bridge,pier_cap,exposed_rebar,medium,pier_cap zone 5,0.89,2025-08-05,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0096,bridge_media/images/files/IMG-0096.jpg,BR-012,bridge,bearing_area,joint_damage,high,bearing_area zone 1,0.9,2025-08-06,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0097,bridge_media/images/files/IMG-0097.jpg,BR-001,bridge,deck,water_leak,low,deck zone 2,0.91,2025-08-07,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0098,bridge_media/images/files/IMG-0098.jpg,BR-002,bridge,expansion_joint,normal/no_defect,none,expansion_joint zone 3,0.92,2025-08-08,No visible defect in supplied inspection image.
+IMG-0099,bridge_media/images/files/IMG-0099.jpg,BR-003,bridge,girder,spalling,high,girder zone 4,0.94,2025-08-09,Synthetic metadata placeholder. Image file supplied separately by user.
+IMG-0100,bridge_media/images/files/IMG-0100.jpg,BR-004,bridge,parapet,crack,low,parapet zone 5,0.95,2025-08-10,Synthetic metadata placeholder. Image file supplied separately by user.

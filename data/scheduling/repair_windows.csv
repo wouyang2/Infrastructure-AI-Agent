@@ -1,0 +1,21 @@
+window_id,start,end,crew,crew_available,disruption_score,closure_type,notes
+WIN-001,2026-06-18T22:00:00,2026-06-19T06:00:00,night maintenance crew,true,2,partial closure,Low traffic overnight window
+WIN-002,2026-06-19T23:00:00,2026-06-20T07:00:00,concrete repair crew,true,3,single-lane closure,Low traffic overnight window
+WIN-003,2026-06-21T00:00:00,2026-06-21T08:00:00,joint repair crew,true,5,shoulder closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-004,2026-06-21T22:00:00,2026-06-22T06:00:00,steel coating crew,true,7,short full closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-005,2026-06-22T23:00:00,2026-06-23T07:00:00,night maintenance crew,true,8,partial closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-006,2026-06-24T00:00:00,2026-06-24T08:00:00,concrete repair crew,true,2,single-lane closure,Low traffic overnight window
+WIN-007,2026-06-24T22:00:00,2026-06-25T06:00:00,joint repair crew,false,3,shoulder closure,Low traffic overnight window
+WIN-008,2026-06-25T23:00:00,2026-06-26T07:00:00,steel coating crew,true,5,short full closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-009,2026-06-27T00:00:00,2026-06-27T08:00:00,night maintenance crew,true,7,partial closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-010,2026-06-27T22:00:00,2026-06-28T06:00:00,concrete repair crew,true,8,single-lane closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-011,2026-06-28T23:00:00,2026-06-29T07:00:00,joint repair crew,true,2,shoulder closure,Low traffic overnight window
+WIN-012,2026-06-30T00:00:00,2026-06-30T08:00:00,steel coating crew,true,3,short full closure,Low traffic overnight window
+WIN-013,2026-06-30T22:00:00,2026-07-01T06:00:00,night maintenance crew,true,5,partial closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-014,2026-07-01T23:00:00,2026-07-02T07:00:00,concrete repair crew,false,7,single-lane closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-015,2026-07-03T00:00:00,2026-07-03T08:00:00,joint repair crew,true,8,shoulder closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-016,2026-07-03T22:00:00,2026-07-04T06:00:00,steel coating crew,true,2,short full closure,Low traffic overnight window
+WIN-017,2026-07-04T23:00:00,2026-07-05T07:00:00,night maintenance crew,true,3,partial closure,Low traffic overnight window
+WIN-018,2026-07-06T00:00:00,2026-07-06T08:00:00,concrete repair crew,true,5,single-lane closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-019,2026-07-06T22:00:00,2026-07-07T06:00:00,joint repair crew,true,7,shoulder closure,Higher disruption due to lane restrictions or daytime spillover risk
+WIN-020,2026-07-07T23:00:00,2026-07-08T07:00:00,steel coating crew,true,8,short full closure,Higher disruption due to lane restrictions or daytime spillover risk

@@ -1,0 +1,21 @@
+window_id,traffic_level,estimated_delay_minutes,traffic_risk_score,rationale
+WIN-001,low,4,1,Overnight traffic expected to be low.
+WIN-002,medium,9,3,Lane closure may cause measurable delay.
+WIN-003,high,18,6,Lane closure may cause measurable delay.
+WIN-004,very high,35,9,Lane closure may cause measurable delay.
+WIN-005,low,4,1,Overnight traffic expected to be low.
+WIN-006,medium,9,3,Lane closure may cause measurable delay.
+WIN-007,high,18,6,Lane closure may cause measurable delay.
+WIN-008,very high,35,9,Lane closure may cause measurable delay.
+WIN-009,low,4,1,Overnight traffic expected to be low.
+WIN-010,medium,9,3,Lane closure may cause measurable delay.
+WIN-011,high,18,6,Lane closure may cause measurable delay.
+WIN-012,very high,35,9,Lane closure may cause measurable delay.
+WIN-013,low,4,1,Overnight traffic expected to be low.
+WIN-014,medium,9,3,Lane closure may cause measurable delay.
+WIN-015,high,18,6,Lane closure may cause measurable delay.
+WIN-016,very high,35,9,Lane closure may cause measurable delay.
+WIN-017,low,4,1,Overnight traffic expected to be low.
+WIN-018,medium,9,3,Lane closure may cause measurable delay.
+WIN-019,high,18,6,Lane closure may cause measurable delay.
+WIN-020,very high,35,9,Lane closure may cause measurable delay.

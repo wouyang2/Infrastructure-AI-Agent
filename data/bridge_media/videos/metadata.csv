@@ -1,0 +1,11 @@
+video_id,file_path,asset_id,asset_type,component,known_defects,duration_seconds,sampling_interval_seconds,inspection_date,notes
+VID-001,bridge_media/videos/files/VID-001.mp4,BR-001,bridge,expansion_joint,spalling; exposed_rebar,30,5,2025-09-01,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-002,bridge_media/videos/files/VID-002.mp4,BR-002,bridge,deck,crack,35,5,2025-09-04,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-003,bridge_media/videos/files/VID-003.mp4,BR-003,bridge,girder,corrosion,40,5,2025-09-07,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-004,bridge_media/videos/files/VID-004.mp4,BR-004,bridge,pier_cap,joint_damage; water_leak,45,5,2025-09-10,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-005,bridge_media/videos/files/VID-005.mp4,BR-005,bridge,expansion_joint,spalling; exposed_rebar,50,5,2025-09-13,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-006,bridge_media/videos/files/VID-006.mp4,BR-006,bridge,deck,crack,55,5,2025-09-16,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-007,bridge_media/videos/files/VID-007.mp4,BR-007,bridge,girder,corrosion,60,5,2025-09-19,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-008,bridge_media/videos/files/VID-008.mp4,BR-008,bridge,pier_cap,joint_damage; water_leak,65,5,2025-09-22,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-009,bridge_media/videos/files/VID-009.mp4,BR-001,bridge,expansion_joint,spalling; exposed_rebar,70,5,2025-09-25,Synthetic video metadata placeholder. Video file supplied separately by user.
+VID-010,bridge_media/videos/files/VID-010.mp4,BR-002,bridge,deck,crack,75,5,2025-09-28,Synthetic video metadata placeholder. Video file supplied separately by user.

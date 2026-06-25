@@ -1,0 +1,21 @@
+window_id,access_constraint,access_risk_score,rationale
+WIN-001,none,0,No unusual access constraints.
+WIN-002,under-bridge access limited,4,Access constraints may require coordination before work begins.
+WIN-003,rail coordination required,7,Access constraints may require coordination before work begins.
+WIN-004,lift equipment required,5,Access constraints may require coordination before work begins.
+WIN-005,none,0,No unusual access constraints.
+WIN-006,under-bridge access limited,4,Access constraints may require coordination before work begins.
+WIN-007,rail coordination required,7,Access constraints may require coordination before work begins.
+WIN-008,lift equipment required,5,Access constraints may require coordination before work begins.
+WIN-009,none,0,No unusual access constraints.
+WIN-010,under-bridge access limited,4,Access constraints may require coordination before work begins.
+WIN-011,rail coordination required,7,Access constraints may require coordination before work begins.
+WIN-012,lift equipment required,5,Access constraints may require coordination before work begins.
+WIN-013,none,0,No unusual access constraints.
+WIN-014,under-bridge access limited,4,Access constraints may require coordination before work begins.
+WIN-015,rail coordination required,7,Access constraints may require coordination before work begins.
+WIN-016,lift equipment required,5,Access constraints may require coordination before work begins.
+WIN-017,none,0,No unusual access constraints.
+WIN-018,under-bridge access limited,4,Access constraints may require coordination before work begins.
+WIN-019,rail coordination required,7,Access constraints may require coordination before work begins.
+WIN-020,lift equipment required,5,Access constraints may require coordination before work begins.

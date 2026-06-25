@@ -1,0 +1,16 @@
+.env
+__pycache__/
+.pytest_cache/
+.venv/
+.venv312/
+*.pyc
+.DS_Store
+artifacts/video_frames/
+artifacts/uploads/
+artifacts/annotated_images/
+artifacts/chroma/
+artifacts/evals/
+data/bridge_image/*.jpg
+data/bridge_image/*.jpeg
+data/bridge_image/*.png
+data/bridge_image/*.webp
