@@ -112,6 +112,30 @@ def test_create_inspection_returns_report() -> None:
     assert "# Infrastructure Inspection Report" in payload["rendered_report"]
 
 
+def test_export_report_pdf_returns_pdf() -> None:
+    inspection_response = client.post(
+        "/inspections",
+        json={
+            "asset_id": "API-PDF-100",
+            "asset_type": "bridge",
+            "asset_name": "API PDF Bridge",
+            "location": "East approach",
+            "criticality": "high",
+            "notes": "Inspection found spalling with loose concrete.",
+            "embedding_backend": "fake",
+            "scheduling_mode": "deterministic",
+        },
+    )
+    assert inspection_response.status_code == 200
+
+    response = client.post("/reports/pdf", json=inspection_response.json())
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/pdf"
+    assert response.content.startswith(b"%PDF")
+    assert "CASE-API-PDF-100.pdf" in response.headers["content-disposition"]
+
+
 def test_create_inspection_monitoring_only_skips_schedule() -> None:
     response = client.post(
         "/inspections",

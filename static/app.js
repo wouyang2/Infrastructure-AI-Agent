@@ -17,6 +17,7 @@ const observationsBlock = document.querySelector("#observations");
 const contextBlock = document.querySelector("#context");
 const planBlock = document.querySelector("#plan");
 const formalReport = document.querySelector("#formal-report");
+let latestInspectionPayload = null;
 
 function setStatus(label, state) {
   statusPill.textContent = label;
@@ -171,6 +172,7 @@ function renderNarrative(text) {
 }
 
 function renderFormalReport(payload) {
+  latestInspectionPayload = payload;
   const report = payload.report;
   const schedule = report.schedule;
   const plan = report.maintenance_plan;
@@ -400,6 +402,7 @@ form.addEventListener("submit", async (event) => {
   setStatus("Running", "running");
   runButton.disabled = true;
   exportReportButton.disabled = true;
+  latestInspectionPayload = null;
   formalReport.innerHTML = '<div class="empty-report">Running the inspection workflow...</div>';
 
   try {
@@ -423,8 +426,40 @@ form.addEventListener("submit", async (event) => {
   }
 });
 
-exportReportButton.addEventListener("click", () => {
-  window.print();
+exportReportButton.addEventListener("click", async () => {
+  if (!latestInspectionPayload) return;
+  exportReportButton.disabled = true;
+  const originalLabel = exportReportButton.textContent;
+  exportReportButton.textContent = "Preparing PDF...";
+  try {
+    const response = await fetch("/reports/pdf", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(latestInspectionPayload),
+    });
+    if (!response.ok) {
+      throw new Error(await response.text());
+    }
+    const blob = await response.blob();
+    const caseId = latestInspectionPayload.report.case.case_id || "inspection-report";
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `${caseId}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  } catch (error) {
+    setStatus("Export error", "error");
+    formalReport.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="empty-report">${escapeHtml(error.message)}</div>`,
+    );
+  } finally {
+    exportReportButton.textContent = originalLabel;
+    exportReportButton.disabled = false;
+  }
 });
 
 loadSampleImages();

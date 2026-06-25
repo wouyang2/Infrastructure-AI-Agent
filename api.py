@@ -10,10 +10,11 @@ from uuid import uuid4
 from typing import Any, Literal
 
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from agents.helpers.pdf_report import build_inspection_pdf
 from workflows.inspection_graph import run_inspection_graph
 
 
@@ -92,6 +93,11 @@ class InspectionRequest(BaseModel):
 class InspectionResponse(BaseModel):
     report: dict
     rendered_report: str
+
+
+class PDFReportRequest(BaseModel):
+    report: dict[str, Any]
+    rendered_report: str = ""
 
 
 class SampleImage(BaseModel):
@@ -263,4 +269,26 @@ def create_inspection(request: InspectionRequest) -> InspectionResponse:
     return InspectionResponse(
         report=asdict(report),
         rendered_report=rendered_report,
+    )
+
+
+@app.post("/reports/pdf")
+def export_report_pdf(request: PDFReportRequest) -> StreamingResponse:
+    try:
+        pdf_bytes = build_inspection_pdf(request.report, request.rendered_report)
+    except RuntimeError as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    case = request.report.get("case", {})
+    case_id = str(case.get("case_id") or "inspection-report")
+    filename = "".join(
+        character if character.isalnum() or character in {"-", "_"} else "-"
+        for character in case_id
+    ).strip("-")
+    return StreamingResponse(
+        BytesIO(pdf_bytes),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename or "inspection-report"}.pdf"'
+        },
     )
