@@ -170,25 +170,14 @@ textarea {
   line-height: 1.35;
 }
 
-.drop-zone img {
+.drop-zone img,
+.drop-zone video {
   width: 92px;
   aspect-ratio: 1;
   object-fit: cover;
   border-radius: 6px;
   border: 1px solid var(--line);
   background: #fff;
-}
-
-.video-drop-zone {
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.video-drop-zone video {
-  width: 100%;
-  max-height: 160px;
-  border-radius: 6px;
-  border: 1px solid var(--line);
-  background: #111827;
 }
 
 input:focus,

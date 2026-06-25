@@ -28,6 +28,12 @@ def test_index_serves_demo_ui() -> None:
     assert "Formal Report Preview" in response.text
     assert "Export Report" in response.text
     assert "LLM polished" in response.text
+    assert "Drop inspection media" in response.text
+    assert 'id="media-upload"' in response.text
+    assert 'name="image_path" type="hidden"' in response.text
+    assert 'name="video_path" type="hidden"' in response.text
+    assert "Image Path" not in response.text
+    assert "Video Path" not in response.text
 
 
 def test_sample_images_endpoint_returns_preview_paths() -> None:

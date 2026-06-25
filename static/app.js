@@ -3,12 +3,9 @@ const runButton = document.querySelector("#run-button");
 const statusPill = document.querySelector("#status-pill");
 const sampleStrip = document.querySelector("#sample-strip");
 const dropZone = document.querySelector("#drop-zone");
-const imageUpload = document.querySelector("#image-upload");
+const mediaUpload = document.querySelector("#media-upload");
 const uploadStatus = document.querySelector("#upload-status");
 const uploadPreview = document.querySelector("#upload-preview");
-const videoDropZone = document.querySelector("#video-drop-zone");
-const videoUpload = document.querySelector("#video-upload");
-const videoUploadStatus = document.querySelector("#video-upload-status");
 const videoUploadPreview = document.querySelector("#video-upload-preview");
 const exportReportButton = document.querySelector("#export-report-button");
 
@@ -110,21 +107,24 @@ async function uploadImage(file) {
 
   const payload = await response.json();
   form.elements.image_path.value = payload.file_path;
+  form.elements.video_path.value = "";
   if (form.elements.image_analyzer.value === "metadata") {
     form.elements.image_analyzer.value = "roboflow";
   }
   uploadPreview.src = payload.preview_url;
   uploadPreview.hidden = false;
+  videoUploadPreview.hidden = true;
+  videoUploadPreview.removeAttribute("src");
   uploadStatus.textContent = `${file.name} uploaded. Analyzer set to ${form.elements.image_analyzer.value}.`;
 }
 
 async function uploadVideo(file) {
   if (!file || !file.type.startsWith("video/")) {
-    videoUploadStatus.textContent = "Choose an MP4, MOV, AVI, or MKV video.";
+    uploadStatus.textContent = "Choose an MP4, MOV, AVI, or MKV video.";
     return;
   }
 
-  videoUploadStatus.textContent = `Uploading ${file.name}...`;
+  uploadStatus.textContent = `Uploading ${file.name}...`;
   const contentBase64 = await readFileAsBase64(file);
   const response = await fetch("/uploads/videos", {
     method: "POST",
@@ -135,16 +135,32 @@ async function uploadVideo(file) {
     }),
   });
   if (!response.ok) {
-    videoUploadStatus.textContent = await response.text();
+    uploadStatus.textContent = await response.text();
     return;
   }
 
   const payload = await response.json();
+  form.elements.image_path.value = "";
   form.elements.video_path.value = payload.file_path;
   form.elements.video_sampler.value = "opencv";
+  uploadPreview.hidden = true;
+  uploadPreview.removeAttribute("src");
   videoUploadPreview.src = payload.preview_url;
   videoUploadPreview.hidden = false;
-  videoUploadStatus.textContent = `${file.name} uploaded. OpenCV sampling enabled.`;
+  uploadStatus.textContent = `${file.name} uploaded. OpenCV sampling enabled.`;
+}
+
+async function uploadMedia(file) {
+  if (!file) return;
+  if (file.type.startsWith("image/")) {
+    await uploadImage(file);
+    return;
+  }
+  if (file.type.startsWith("video/")) {
+    await uploadVideo(file);
+    return;
+  }
+  uploadStatus.textContent = "Choose an image or video file.";
 }
 
 function renderList(element, rows, emptyText) {
@@ -409,8 +425,10 @@ async function loadSampleImages() {
   sampleStrip.querySelectorAll(".sample-card").forEach((card) => {
     card.addEventListener("click", () => {
       form.elements.image_path.value = card.dataset.path;
+      form.elements.video_path.value = "";
       form.elements.image_analyzer.value = "metadata";
       uploadPreview.hidden = true;
+      videoUploadPreview.hidden = true;
       uploadStatus.textContent = "Sample image selected from annotated dataset.";
     });
   });
@@ -428,30 +446,11 @@ dropZone.addEventListener("dragleave", () => {
 dropZone.addEventListener("drop", async (event) => {
   event.preventDefault();
   dropZone.classList.remove("dragover");
-  await uploadImage(event.dataTransfer.files[0]);
+  await uploadMedia(event.dataTransfer.files[0]);
 });
 
-imageUpload.addEventListener("change", async () => {
-  await uploadImage(imageUpload.files[0]);
-});
-
-videoDropZone.addEventListener("dragover", (event) => {
-  event.preventDefault();
-  videoDropZone.classList.add("dragover");
-});
-
-videoDropZone.addEventListener("dragleave", () => {
-  videoDropZone.classList.remove("dragover");
-});
-
-videoDropZone.addEventListener("drop", async (event) => {
-  event.preventDefault();
-  videoDropZone.classList.remove("dragover");
-  await uploadVideo(event.dataTransfer.files[0]);
-});
-
-videoUpload.addEventListener("change", async () => {
-  await uploadVideo(videoUpload.files[0]);
+mediaUpload.addEventListener("change", async () => {
+  await uploadMedia(mediaUpload.files[0]);
 });
 
 form.addEventListener("submit", async (event) => {

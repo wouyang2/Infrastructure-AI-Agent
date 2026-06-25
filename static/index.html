@@ -58,31 +58,16 @@
               <textarea name="notes" rows="5">Inspection found spalling near an expansion joint with loose concrete and exposed substrate. No immediate closure is in place.</textarea>
             </label>
 
-            <label>
-              Image Path
-              <input name="image_path" placeholder="data/bridge_image/example.jpg" />
-            </label>
+            <input name="image_path" type="hidden" />
+            <input name="video_path" type="hidden" />
 
             <div class="drop-zone" id="drop-zone">
-              <input id="image-upload" type="file" accept="image/*" />
+              <input id="media-upload" type="file" accept="image/*,video/*" />
               <div>
-                <strong>Drop inspection image</strong>
-                <span id="upload-status">or click to upload a bridge photo</span>
+                <strong>Drop inspection media</strong>
+                <span id="upload-status">or click to upload a bridge photo or video walkthrough</span>
               </div>
               <img id="upload-preview" alt="" hidden />
-            </div>
-
-            <label>
-              Video Path
-              <input name="video_path" placeholder="artifacts/uploads/inspection-video.mp4" />
-            </label>
-
-            <div class="drop-zone video-drop-zone" id="video-drop-zone">
-              <input id="video-upload" type="file" accept="video/*" />
-              <div>
-                <strong>Drop inspection video</strong>
-                <span id="video-upload-status">or click to upload a bridge walkthrough</span>
-              </div>
               <video id="video-upload-preview" hidden controls muted></video>
             </div>
 
