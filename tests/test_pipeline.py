@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import csv
+import json
 from datetime import datetime
 from pathlib import Path
 
@@ -118,6 +119,43 @@ def test_heuristic_image_analyzer_is_default() -> None:
     assert args.report_mode == "deterministic"
     assert args.llm_max_retries == 4
     assert args.llm_failure_mode == "fallback"
+
+
+def test_workflow_trace_is_written(tmp_path) -> None:
+    report = _run_test_graph(
+        {
+            "asset_id": "TRACE-001",
+            "asset_type": "bridge",
+            "asset_name": "Trace Bridge",
+            "location": "Trace corridor",
+            "criticality": "high",
+            "notes": "Inspection found spalling with loose concrete.",
+            "image_paths": [],
+            "video_paths": [],
+            "reason": "trace_test",
+        },
+        trace_output_dir=str(tmp_path),
+    )
+
+    assert report.workflow_trace_id
+    assert report.workflow_trace_path
+    trace_path = Path(report.workflow_trace_path)
+    assert trace_path.exists()
+
+    trace = json.loads(trace_path.read_text(encoding="utf-8"))
+    assert trace["case_id"] == "CASE-TRACE-001"
+    assert trace["severity"] == report.severity.severity
+    assert trace["repair_required"] is True
+    assert [event["node"] for event in trace["events"]] == [
+        "intake",
+        "evidence",
+        "severity",
+        "maintenance_planning",
+        "schedule_context",
+        "scheduling",
+        "report",
+    ]
+    assert all(event["status"] == "ok" for event in trace["events"])
 
 
 def test_metadata_image_analyzer_options_parse() -> None:

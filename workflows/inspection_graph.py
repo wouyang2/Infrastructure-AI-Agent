@@ -8,6 +8,7 @@ from langgraph.graph import END, START, StateGraph
 from agents.evidence_agent import EvidenceAgent
 from agents.helpers.image_analyzer import build_image_analyzer
 from agents.helpers.report_artifacts import AnnotatedImageArtifactGenerator
+from agents.helpers.workflow_trace import WorkflowTrace, time_ms
 from agents.helpers.video_sampler import build_video_frame_sampler
 from agents.intake_agent import IntakeAgent
 from agents.maintenance_planning_agent import MaintenancePlanningAgent
@@ -71,6 +72,7 @@ class InspectionGraphState(TypedDict, total=False):
     repair_schedule: RepairSchedule
     report: InspectionReport
     rendered_report: str
+    workflow_trace_path: str
 
 
 def build_inspection_graph(
@@ -111,6 +113,8 @@ def build_inspection_graph(
     chroma_persist_dir: str = "artifacts/chroma",
     rebuild_rag_index: bool = False,
     knowledge_corpus: str = "merged",
+    trace_output_dir: str = "artifacts/traces",
+    enable_workflow_trace: bool = True,
 ):
     repair_windows = (
         _roll_repair_windows_forward(MOCK_REPAIR_WINDOWS)
@@ -186,8 +190,50 @@ def build_inspection_graph(
         llm_failure_mode=llm_failure_mode,  # type: ignore[arg-type]
     )
     artifact_generator = AnnotatedImageArtifactGenerator()
+    workflow_trace = (
+        WorkflowTrace(output_dir=trace_output_dir)
+        if enable_workflow_trace
+        else None
+    )
 
     graph = StateGraph(InspectionGraphState)
+
+    def traced_node(name: str, node):
+        if workflow_trace is None:
+            return node
+
+        def wrapped(state: InspectionGraphState) -> InspectionGraphState:
+            started_at = time_ms()
+            try:
+                output = node(state)
+            except Exception as exc:
+                workflow_trace.record_node(
+                    node_name=name,
+                    status="error",
+                    duration_ms=time_ms() - started_at,
+                    error=str(exc),
+                )
+                raise
+
+            workflow_trace.record_node(
+                node_name=name,
+                status="ok",
+                duration_ms=time_ms() - started_at,
+                output_keys=sorted(output.keys()),
+            )
+            if name == "report" and "report" in output:
+                report = output["report"]
+                trace_path = workflow_trace.write(
+                    case_id=report.case.case_id,
+                    repair_required=report.severity.repair_required,
+                    severity=report.severity.severity,
+                )
+                report.workflow_trace_id = workflow_trace.trace_id
+                report.workflow_trace_path = trace_path
+                output["workflow_trace_path"] = trace_path
+            return output
+
+        return wrapped
 
     def intake_node(state: InspectionGraphState) -> InspectionGraphState:
         values = state["input"]
@@ -272,14 +318,14 @@ def build_inspection_graph(
             "rendered_report": rendered_report,
         }
 
-    graph.add_node("intake", intake_node)
-    graph.add_node("evidence", evidence_node)
-    graph.add_node("severity", severity_node)
-    graph.add_node("maintenance_planning", maintenance_node)
-    graph.add_node("monitoring_plan", monitoring_node)
-    graph.add_node("schedule_context", schedule_context_node)
-    graph.add_node("scheduling", scheduling_node)
-    graph.add_node("report", report_node)
+    graph.add_node("intake", traced_node("intake", intake_node))
+    graph.add_node("evidence", traced_node("evidence", evidence_node))
+    graph.add_node("severity", traced_node("severity", severity_node))
+    graph.add_node("maintenance_planning", traced_node("maintenance_planning", maintenance_node))
+    graph.add_node("monitoring_plan", traced_node("monitoring_plan", monitoring_node))
+    graph.add_node("schedule_context", traced_node("schedule_context", schedule_context_node))
+    graph.add_node("scheduling", traced_node("scheduling", scheduling_node))
+    graph.add_node("report", traced_node("report", report_node))
 
     graph.add_edge(START, "intake")
     graph.add_edge("intake", "evidence")
@@ -344,6 +390,8 @@ def run_inspection_graph(
     chroma_persist_dir: str = "artifacts/chroma",
     rebuild_rag_index: bool = False,
     knowledge_corpus: str = "merged",
+    trace_output_dir: str = "artifacts/traces",
+    enable_workflow_trace: bool = True,
 ) -> InspectionReport:
     graph = build_inspection_graph(
         image_analyzer_mode=image_analyzer_mode,
@@ -382,6 +430,8 @@ def run_inspection_graph(
         chroma_persist_dir=chroma_persist_dir,
         rebuild_rag_index=rebuild_rag_index,
         knowledge_corpus=knowledge_corpus,
+        trace_output_dir=trace_output_dir,
+        enable_workflow_trace=enable_workflow_trace,
     )
     result = graph.invoke({"input": input_values})
     return result["report"]

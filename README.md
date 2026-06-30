@@ -135,6 +135,28 @@ Recommended next improvements:
 - **Harden deployment.** Add authentication, file size limits, secret management, background jobs for long video processing, observability, API rate-limit handling, and production logging.
 - **Add human-in-the-loop review.** Let engineers approve or edit detected defects, severity, repair requirement, maintenance plan, schedule selection, and final PDF content before the report is finalized.
 
+## Production Readiness Checklist
+
+Current status: **production-aware MVP**. The system demonstrates the architecture and reliability patterns, but still needs real operational data and infrastructure before production use.
+
+- [x] Typed multi-agent workflow with LangGraph
+- [x] Image, video, and text evidence intake
+- [x] Deterministic fallbacks for core decisions
+- [x] RAG abstraction with Chroma-backed retrieval
+- [x] Live weather, traffic, and event API integration
+- [x] Formal PDF report export
+- [x] Unit and integration tests
+- [x] Workflow run traces written to ignored JSON artifacts
+- [ ] Real maintenance and repair-history RAG corpus
+- [ ] Persistent case database
+- [ ] Authentication and role-based access
+- [ ] Background job queue for long video/vision processing
+- [ ] Redis-backed progress state, caching, rate limits, and distributed locks
+- [ ] Human review and approval workflow
+- [ ] Observability dashboard for traces, latency, cost, and failures
+- [ ] Deployment hardening, secret management, and upload limits
+- [ ] Production eval set built from real inspection cases
+
 ## Resume Summary
 
 Built an end-to-end multi-agent AI system for bridge infrastructure inspection using LangGraph, FastAPI, LangChain, ChromaDB, OpenAI, Roboflow, OpenCV, OpenWeather, TomTom, and Ticketmaster. The system converts inspection evidence into structured observations, severity assessments, RAG-grounded maintenance plans, live-context repair schedules, and formal exportable inspection reports.

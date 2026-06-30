@@ -169,3 +169,5 @@ class InspectionReport:
     schedule: RepairSchedule | None = None
     annotated_media_paths: list[str] = field(default_factory=list)
     rendered_report: str | None = None
+    workflow_trace_id: str | None = None
+    workflow_trace_path: str | None = None
