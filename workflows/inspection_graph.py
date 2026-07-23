@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta
+import os
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -31,6 +32,21 @@ from models import (
     SeverityAssessment,
 )
 from rag.retriever_factory import build_retriever
+
+
+def _load_dotenv_if_available() -> None:
+    if (
+        os.getenv("PYTEST_CURRENT_TEST")
+        and os.getenv("LANGSMITH_TRACING_DURING_TESTS", "").lower()
+        not in {"1", "true", "yes"}
+    ):
+        return
+
+    try:
+        from dotenv import load_dotenv
+    except ImportError:
+        return
+    load_dotenv()
 
 
 def _roll_repair_windows_forward(
@@ -116,6 +132,8 @@ def build_inspection_graph(
     trace_output_dir: str = "artifacts/traces",
     enable_workflow_trace: bool = True,
 ):
+    _load_dotenv_if_available()
+
     repair_windows = (
         _roll_repair_windows_forward(MOCK_REPAIR_WINDOWS)
         if schedule_context_mode == "live"
@@ -190,11 +208,8 @@ def build_inspection_graph(
         llm_failure_mode=llm_failure_mode,  # type: ignore[arg-type]
     )
     artifact_generator = AnnotatedImageArtifactGenerator()
-    workflow_trace = (
-        WorkflowTrace(output_dir=trace_output_dir)
-        if enable_workflow_trace
-        else None
-    )
+    workflow_trace = WorkflowTrace(output_dir=trace_output_dir) if enable_workflow_trace else None
+    
 
     graph = StateGraph(InspectionGraphState)
 

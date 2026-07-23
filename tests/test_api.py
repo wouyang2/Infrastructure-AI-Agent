@@ -27,6 +27,7 @@ def test_index_serves_demo_ui() -> None:
     assert "Run Inspection" in response.text
     assert "Formal Report Preview" in response.text
     assert "Export Report" in response.text
+    assert "Case Review" in response.text
     assert "LLM polished" in response.text
     assert "Drop inspection media" in response.text
     assert 'id="media-upload"' in response.text
@@ -137,6 +138,7 @@ def test_create_inspection_returns_report() -> None:
 
     assert response.status_code == 200
     payload = response.json()
+    assert payload["run_id"]
     assert payload["report"]["case"]["case_id"] == "CASE-API-100"
     assert payload["report"]["severity"]["repair_required"] is True
     assert (
@@ -145,6 +147,87 @@ def test_create_inspection_returns_report() -> None:
     )
     assert payload["report"]["schedule"] is not None
     assert "# Infrastructure Inspection Report" in payload["rendered_report"]
+
+    detail_response = client.get(f"/cases/{payload['run_id']}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["status"] == "completed"
+    assert detail["case_id"] == "CASE-API-100"
+    assert detail["severity"] == payload["report"]["severity"]["severity"]
+    assert detail["report"]["case"]["case_id"] == "CASE-API-100"
+
+
+def test_cases_endpoint_lists_persisted_inspections() -> None:
+    inspection_response = client.post(
+        "/inspections",
+        json={
+            "asset_id": "API-LIST-100",
+            "asset_type": "bridge",
+            "asset_name": "API List Bridge",
+            "location": "East approach",
+            "criticality": "high",
+            "notes": "Inspection found spalling with loose concrete.",
+            "embedding_backend": "fake",
+            "scheduling_mode": "deterministic",
+        },
+    )
+    assert inspection_response.status_code == 200
+    run_id = inspection_response.json()["run_id"]
+
+    response = client.get("/cases?limit=10")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert any(item["run_id"] == run_id for item in payload)
+
+
+def test_review_endpoint_updates_completed_case() -> None:
+    inspection_response = client.post(
+        "/inspections",
+        json={
+            "asset_id": "API-REVIEW-100",
+            "asset_type": "bridge",
+            "asset_name": "API Review Bridge",
+            "location": "East approach",
+            "criticality": "high",
+            "notes": "Inspection found spalling with loose concrete.",
+            "embedding_backend": "fake",
+            "scheduling_mode": "deterministic",
+        },
+    )
+    assert inspection_response.status_code == 200
+    run_id = inspection_response.json()["run_id"]
+
+    response = client.patch(
+        f"/cases/{run_id}/review",
+        json={
+            "review_status": "approved",
+            "reviewer_notes": "Confirmed repair recommendation for demo.",
+            "reviewed_by": "engineer-demo",
+        },
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["review_status"] == "approved"
+    assert payload["reviewer_notes"] == "Confirmed repair recommendation for demo."
+    assert payload["reviewed_by"] == "engineer-demo"
+    assert payload["reviewed_at"]
+
+
+def test_review_endpoint_rejects_missing_case() -> None:
+    response = client.patch(
+        "/cases/not-a-real-run/review",
+        json={"review_status": "approved"},
+    )
+
+    assert response.status_code == 404
+
+
+def test_case_detail_returns_404_for_missing_run() -> None:
+    response = client.get("/cases/not-a-real-run")
+
+    assert response.status_code == 404
 
 
 def test_export_report_pdf_returns_pdf() -> None:

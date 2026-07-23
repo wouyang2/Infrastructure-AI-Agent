@@ -8,6 +8,10 @@ const uploadStatus = document.querySelector("#upload-status");
 const uploadPreview = document.querySelector("#upload-preview");
 const videoUploadPreview = document.querySelector("#video-upload-preview");
 const exportReportButton = document.querySelector("#export-report-button");
+const refreshCasesButton = document.querySelector("#refresh-cases-button");
+const caseHistory = document.querySelector("#case-history");
+const reviewSummary = document.querySelector("#review-summary");
+const reviewNotes = document.querySelector("#review-notes");
 
 const caseTitle = document.querySelector("#case-title");
 const metricSeverity = document.querySelector("#metric-severity");
@@ -19,6 +23,7 @@ const contextBlock = document.querySelector("#context");
 const planBlock = document.querySelector("#plan");
 const formalReport = document.querySelector("#formal-report");
 let latestInspectionPayload = null;
+let selectedRunId = null;
 
 function setStatus(label, state) {
   statusPill.textContent = label;
@@ -183,6 +188,11 @@ function formatWindow(schedule) {
 function sentenceCase(value) {
   const text = String(value ?? "-").replaceAll("_", " ");
   return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return String(value).slice(0, 19).replace("T", " ");
 }
 
 function renderRows(rows) {
@@ -366,6 +376,73 @@ function renderFormalReport(payload) {
   exportReportButton.disabled = false;
 }
 
+function renderReviewSummary(caseDetail) {
+  selectedRunId = caseDetail.run_id;
+  reviewNotes.value = caseDetail.reviewer_notes || "";
+  renderList(
+    reviewSummary,
+    [
+      item("Case", `${caseDetail.case_id || "Pending"} · ${caseDetail.status}`),
+      item("Asset", `${caseDetail.asset_name} · ${caseDetail.location}`),
+      item("Severity", `${sentenceCase(caseDetail.severity)} · repair ${caseDetail.repair_required ? "required" : "not required"}`),
+      item("Review", `${sentenceCase(caseDetail.review_status)}${caseDetail.reviewed_by ? ` by ${caseDetail.reviewed_by}` : ""}`),
+      item("Trace", caseDetail.workflow_trace_id || "No workflow trace recorded"),
+    ],
+    "Select a saved case.",
+  );
+}
+
+async function loadCaseDetail(runId) {
+  const response = await fetch(`/cases/${encodeURIComponent(runId)}`);
+  if (!response.ok) {
+    throw new Error(await response.text());
+  }
+  const caseDetail = await response.json();
+  renderReviewSummary(caseDetail);
+}
+
+async function loadCases() {
+  caseHistory.textContent = "Loading saved cases...";
+  caseHistory.className = "case-history muted";
+  const response = await fetch("/cases?limit=12");
+  if (!response.ok) {
+    caseHistory.textContent = await response.text();
+    return;
+  }
+  const cases = await response.json();
+  if (!cases.length) {
+    caseHistory.textContent = "No saved cases yet.";
+    return;
+  }
+  caseHistory.className = "case-history";
+  caseHistory.innerHTML = cases
+    .map(
+      (item) => `
+        <button type="button" class="case-row" data-run-id="${escapeHtml(item.run_id)}">
+          <span>
+            <strong>${escapeHtml(item.case_id || item.asset_id)}</strong>
+            ${escapeHtml(item.asset_name)}
+          </span>
+          <span class="case-row-meta">
+            ${escapeHtml(sentenceCase(item.review_status))} · ${escapeHtml(formatDateTime(item.completed_at || item.created_at))}
+          </span>
+        </button>
+      `,
+    )
+    .join("");
+  caseHistory.querySelectorAll(".case-row").forEach((button) => {
+    button.addEventListener("click", async () => {
+      caseHistory.querySelectorAll(".case-row").forEach((row) => row.classList.remove("selected"));
+      button.classList.add("selected");
+      try {
+        await loadCaseDetail(button.dataset.runId);
+      } catch (error) {
+        reviewSummary.innerHTML = `<div class="empty-report">${escapeHtml(error.message)}</div>`;
+      }
+    });
+  });
+}
+
 function renderResult(payload) {
   const report = payload.report;
   const schedule = report.schedule;
@@ -473,6 +550,10 @@ form.addEventListener("submit", async (event) => {
     }
     const payload = await response.json();
     renderResult(payload);
+    await loadCases();
+    if (payload.run_id) {
+      await loadCaseDetail(payload.run_id);
+    }
     setStatus("Complete", "done");
   } catch (error) {
     setStatus("Error", "error");
@@ -518,4 +599,43 @@ exportReportButton.addEventListener("click", async () => {
   }
 });
 
+refreshCasesButton.addEventListener("click", async () => {
+  await loadCases();
+});
+
+document.querySelectorAll("[data-review-status]").forEach((button) => {
+  button.addEventListener("click", async () => {
+    if (!selectedRunId) {
+      reviewSummary.innerHTML = '<div class="empty-report">Select a saved case before reviewing.</div>';
+      return;
+    }
+    const originalLabel = button.textContent;
+    button.disabled = true;
+    button.textContent = "Saving...";
+    try {
+      const response = await fetch(`/cases/${encodeURIComponent(selectedRunId)}/review`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          review_status: button.dataset.reviewStatus,
+          reviewer_notes: reviewNotes.value,
+          reviewed_by: "demo_reviewer",
+        }),
+      });
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+      const caseDetail = await response.json();
+      renderReviewSummary(caseDetail);
+      await loadCases();
+    } catch (error) {
+      reviewSummary.innerHTML = `<div class="empty-report">${escapeHtml(error.message)}</div>`;
+    } finally {
+      button.textContent = originalLabel;
+      button.disabled = false;
+    }
+  });
+});
+
 loadSampleImages();
+loadCases();

@@ -212,6 +212,38 @@
               <div class="empty-report">Run an inspection to generate the final report.</div>
             </article>
           </section>
+
+          <section class="panel review-panel">
+            <div class="report-header-row">
+              <h3>Case Review</h3>
+              <button type="button" id="refresh-cases-button" class="secondary-button">
+                Refresh Cases
+              </button>
+            </div>
+            <div class="review-grid">
+              <div>
+                <div id="case-history" class="case-history muted">No saved cases loaded.</div>
+              </div>
+              <div class="review-detail">
+                <div id="review-summary" class="list-block muted">Select a saved case.</div>
+                <label>
+                  Review Notes
+                  <textarea id="review-notes" rows="5" placeholder="Add engineer review notes"></textarea>
+                </label>
+                <div class="review-actions">
+                  <button type="button" class="secondary-button" data-review-status="approved">
+                    Approve
+                  </button>
+                  <button type="button" class="secondary-button" data-review-status="needs_revision">
+                    Needs Revision
+                  </button>
+                  <button type="button" class="secondary-button" data-review-status="rejected">
+                    Reject
+                  </button>
+                </div>
+              </div>
+            </div>
+          </section>
         </section>
       </section>
     </main>

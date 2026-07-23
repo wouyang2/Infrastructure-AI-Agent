@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import nullcontext
 import hashlib
 import math
 import os
@@ -74,45 +75,86 @@ class LangChainChromaRetriever:
         defect_type: str | None = None,
         limit: int = 3,
     ) -> list[Citation]:
-        where = self._metadata_filter(
-            source_type=source_type,
-            asset_type=asset_type,
-            defect_type=defect_type,
-        )
-        raw_limit = max(limit * 8, limit)
-        results = self.vector_store.similarity_search_with_score(
-            query,
-            k=raw_limit,
-            filter=where,
-        )
-
-        citations: list[Citation] = []
-        seen_documents = set()
-        for document, score in results:
-            metadata = document.metadata
-            if asset_type and metadata.get("asset_type") not in {asset_type, "generic"}:
-                continue
-            if defect_type and metadata.get("defect_type") not in _defect_filter_values(defect_type):
-                continue
-
-            document_id = str(metadata["document_id"])
-            if document_id in seen_documents:
-                continue
-
-            citations.append(
-                Citation(
-                    document_id=document_id,
-                    title=str(metadata["title"]),
-                    source_type=str(metadata["source_type"]),
-                    excerpt=self._merged_excerpt(document),
-                    score=round(float(score), 3),
-                )
+        with _langsmith_trace(
+            "RAG Search",
+            run_type="retriever",
+            inputs={
+                "query": query,
+                "filters": {
+                    "source_type": source_type,
+                    "asset_type": asset_type,
+                    "defect_type": defect_type,
+                },
+                "limit": limit,
+            },
+            metadata={
+                "collection_name": self.collection_name,
+                "embedding_backend": self.embedding_backend,
+                "embedding_model": self.embedding_model,
+                "persist_directory": self.persist_directory,
+                "parent_chunk_size": self.parent_chunk_size,
+                "child_chunk_size": self.child_chunk_size,
+                "child_chunk_overlap": self.child_chunk_overlap,
+                "semantic_merge_threshold": self.semantic_merge_threshold,
+            },
+        ) as run:
+            where = self._metadata_filter(
+                source_type=source_type,
+                asset_type=asset_type,
+                defect_type=defect_type,
             )
-            seen_documents.add(document_id)
-            if len(citations) >= limit:
-                break
+            raw_limit = max(limit * 8, limit)
+            results = self.vector_store.similarity_search_with_score(
+                query,
+                k=raw_limit,
+                filter=where,
+            )
 
-        return citations
+            citations: list[Citation] = []
+            seen_documents = set()
+            for document, score in results:
+                metadata = document.metadata
+                if asset_type and metadata.get("asset_type") not in {asset_type, "generic"}:
+                    continue
+                if defect_type and metadata.get("defect_type") not in _defect_filter_values(defect_type):
+                    continue
+
+                document_id = str(metadata["document_id"])
+                if document_id in seen_documents:
+                    continue
+
+                citations.append(
+                    Citation(
+                        document_id=document_id,
+                        title=str(metadata["title"]),
+                        source_type=str(metadata["source_type"]),
+                        excerpt=self._merged_excerpt(document),
+                        score=round(float(score), 3),
+                    )
+                )
+                seen_documents.add(document_id)
+                if len(citations) >= limit:
+                    break
+
+            _add_trace_outputs(
+                run,
+                {
+                    "citation_count": len(citations),
+                    "citations": [
+                        {
+                            "document_id": citation.document_id,
+                            "title": citation.title,
+                            "source_type": citation.source_type,
+                            "score": citation.score,
+                            "excerpt_preview": citation.excerpt[:240],
+                        }
+                        for citation in citations
+                    ],
+                    "raw_hit_count": len(results),
+                    "chroma_filter": where,
+                },
+            )
+            return citations
 
     def _metadata_filter(
         self,
@@ -135,7 +177,24 @@ class LangChainChromaRetriever:
         return {"$and": filters}
 
     def get_document(self, document_id: str) -> dict[str, Any] | None:
-        return self.documents_by_id.get(document_id)
+        with _langsmith_trace(
+            "RAG Document Lookup",
+            run_type="tool",
+            inputs={"document_id": document_id},
+            metadata={"collection_name": self.collection_name},
+        ) as run:
+            document = self.documents_by_id.get(document_id)
+            _add_trace_outputs(
+                run,
+                {
+                    "found": document is not None,
+                    "source_type": document.get("source_type") if document else None,
+                    "asset_type": document.get("asset_type") if document else None,
+                    "defect_type": document.get("defect_type") if document else None,
+                    "title": document.get("title") if document else None,
+                },
+            )
+            return document
 
     def _build_vector_store(self):
         try:
@@ -266,3 +325,37 @@ def _cosine_similarity(left: list[float], right: list[float]) -> float:
 
 def _defect_filter_values(defect_type: str) -> set[str]:
     return DEFECT_FILTER_ALIASES.get(defect_type, {defect_type})
+
+
+def _langsmith_trace(
+    name: str,
+    *,
+    run_type: str,
+    inputs: dict[str, Any],
+    metadata: dict[str, Any] | None = None,
+):
+    if (
+        os.getenv("PYTEST_CURRENT_TEST")
+        and os.getenv("LANGSMITH_TRACING_DURING_TESTS", "").lower()
+        not in {"1", "true", "yes"}
+    ):
+        return nullcontext(None)
+
+    if os.getenv("LANGSMITH_TRACING", "").lower() not in {"1", "true", "yes"}:
+        return nullcontext(None)
+
+    try:
+        from langsmith.run_helpers import trace
+    except ImportError:
+        return nullcontext(None)
+
+    return trace(name, run_type=run_type, inputs=inputs, metadata=metadata)
+
+
+def _add_trace_outputs(run: Any, outputs: dict[str, Any]) -> None:
+    if run is None:
+        return
+    try:
+        run.add_outputs(outputs)
+    except AttributeError:
+        pass

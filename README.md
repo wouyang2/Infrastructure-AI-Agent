@@ -34,6 +34,7 @@ pip install -r requirements.txt
 Create a local `.env` file for optional live integrations:
 
 ```bash
+DATABASE_URL=sqlite:///artifacts/infra_agent.db
 OPENAI_API_KEY=...
 ROBOFLOW_API_KEY=...
 ROBOFLOW_MODEL_ID=...
@@ -43,6 +44,13 @@ TICKETMASTER_API_KEY=...
 ```
 
 `.env` is intentionally ignored by git.
+
+The default local database is SQLite at `artifacts/infra_agent.db`. For
+PostgreSQL, set `DATABASE_URL` to a SQLAlchemy URL such as:
+
+```bash
+DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/infra_agent
+```
 
 ## Run The UI
 
@@ -55,6 +63,19 @@ Open:
 ```text
 http://127.0.0.1:8001/
 ```
+
+Useful persistence endpoints:
+
+```text
+GET /cases
+GET /cases/{run_id}
+PATCH /cases/{run_id}/review
+POST /inspections
+```
+
+Each inspection creates a durable `inspection_runs` database row with request
+input, workflow status, severity, repair decision, schedule window, report JSON,
+rendered report text, workflow trace IDs, and human review status.
 
 ## Run The CLI
 
@@ -81,10 +102,39 @@ python3 main.py \
 python3 -m pytest -q
 ```
 
-Latest status at cleanup:
+Latest local status:
 
 ```text
-128 passed, 1 warning
+135 passed, 1 warning
+```
+
+## Evaluation
+
+Fast downstream baseline using annotation metadata as evidence:
+
+```bash
+python3 -m evals.bridge_dataset_eval \
+  --limit 10 \
+  --image-analyzer metadata \
+  --embedding-backend fake \
+  --scheduling-mode deterministic
+```
+
+RAG-only retrieval benchmark:
+
+```bash
+python3 -m evals.rag_retrieval_eval --embedding-backend fake
+```
+
+The RAG eval reports top-1 accuracy, top-k hit rate, wrong-defect retrieval rate,
+average retrieved citations, and p50/p95/p99 retrieval latency. With LangSmith
+tracing enabled, each retrieval appears as `RAG Search` and `RAG Document Lookup`
+spans for query/filter/citation inspection.
+
+Detector-only image benchmark:
+
+```bash
+python3 -m evals.roboflow_detector_eval --limit 10
 ```
 
 ## Data Note
@@ -127,13 +177,13 @@ Recommended next improvements:
 
 - **Replace synthetic RAG data with real infrastructure records.** Ingest real agency manuals, inspection standards, work orders, cost logs, repair durations, closure plans, permit rules, and post-repair outcomes. This is the highest-impact upgrade because maintenance planning and scheduling quality depend heavily on the knowledge base.
 - **Improve severity assessment.** Current severity logic is mostly rule-based, with LLM support focused on rationale. Future versions should use defect size, bounding-box area, affected structural element, crack width, spall area, asset criticality, traffic importance, and LLM-assisted structured severity review.
-- **Add persistent case storage.** Store inspection cases, uploaded media, observations, generated reports, selected schedules, and user decisions in a database instead of treating each run as temporary.
+- **Promote persistence to production Postgres.** Current local persistence uses SQLite with SQLAlchemy. Future versions should add Alembic migrations, production PostgreSQL deployment, and normalized tables for reviewer edits and media lineage.
 - **Strengthen evidence traceability.** Add an evidence timeline showing notes, images, video frames, detector confidence, bounding boxes, RAG citations, and which agent used each piece of evidence.
 - **Expand vision evaluation.** Continue evaluating the Roboflow detector with per-class precision/recall, confusion matrices, per-defect threshold tuning, and slices by lighting, camera angle, defect size, and distance.
 - **Make scheduling more realistic.** Add crew calendars, equipment availability, permit lead times, lane closure constraints, detour impact, route/network effects, event calendars, weather windows, and repair-window optimization.
 - **Improve the product UI.** Add case history, saved reports, side-by-side annotated media, video frame thumbnails, editable recommendations, and a one-click demo preset.
 - **Harden deployment.** Add authentication, file size limits, secret management, background jobs for long video processing, observability, API rate-limit handling, and production logging.
-- **Add human-in-the-loop review.** Let engineers approve or edit detected defects, severity, repair requirement, maintenance plan, schedule selection, and final PDF content before the report is finalized.
+- **Expand human-in-the-loop review.** The current UI supports case approval/rejection notes. Future versions should let engineers edit detected defects, severity, repair requirement, maintenance plan, schedule selection, and final PDF content before approval.
 
 ## Production Readiness Checklist
 
@@ -145,14 +195,16 @@ Current status: **production-aware MVP**. The system demonstrates the architectu
 - [x] RAG abstraction with Chroma-backed retrieval
 - [x] Live weather, traffic, and event API integration
 - [x] Formal PDF report export
+- [x] SQLite persistence layer with PostgreSQL-ready SQLAlchemy configuration
+- [x] Basic human review and approval workflow
 - [x] Unit and integration tests
 - [x] Workflow run traces written to ignored JSON artifacts
 - [ ] Real maintenance and repair-history RAG corpus
-- [ ] Persistent case database
+- [ ] Production PostgreSQL deployment and Alembic migrations
 - [ ] Authentication and role-based access
 - [ ] Background job queue for long video/vision processing
 - [ ] Redis-backed progress state, caching, rate limits, and distributed locks
-- [ ] Human review and approval workflow
+- [ ] Editable human review workflow with reviewer identity and audit history
 - [ ] Observability dashboard for traces, latency, cost, and failures
 - [ ] Deployment hardening, secret management, and upload limits
 - [ ] Production eval set built from real inspection cases

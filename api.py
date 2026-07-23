@@ -9,12 +9,24 @@ from pathlib import Path
 from uuid import uuid4
 from typing import Any, Literal
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
+from sqlalchemy.orm import Session
 
 from agents.helpers.pdf_report import build_inspection_pdf
+from storage.database import get_session, init_database
+from storage.models import InspectionRunRecord
+from storage.repositories import (
+    create_inspection_run,
+    get_inspection_run,
+    list_inspection_runs,
+    mark_inspection_completed,
+    mark_inspection_failed,
+    update_inspection_review,
+)
 from workflows.inspection_graph import run_inspection_graph
 
 
@@ -92,8 +104,48 @@ class InspectionRequest(BaseModel):
 
 
 class InspectionResponse(BaseModel):
+    run_id: str | None = None
     report: dict
     rendered_report: str
+
+
+class InspectionRunSummary(BaseModel):
+    run_id: str
+    case_id: str | None
+    status: str
+    asset_id: str
+    asset_type: str
+    asset_name: str
+    location: str
+    criticality: str
+    severity: str | None
+    repair_required: bool | None
+    recommended_action: str | None
+    schedule_start: str | None
+    schedule_end: str | None
+    workflow_trace_id: str | None
+    review_status: str
+    reviewer_notes: str | None
+    reviewed_by: str | None
+    reviewed_at: str | None
+    created_at: str
+    completed_at: str | None
+
+
+class InspectionRunDetail(InspectionRunSummary):
+    image_count: int
+    video_count: int
+    request: dict[str, Any]
+    report: dict[str, Any] | None
+    rendered_report: str | None
+    workflow_trace_path: str | None
+    error: str | None
+
+
+class InspectionReviewRequest(BaseModel):
+    review_status: Literal["not_reviewed", "approved", "rejected", "needs_revision"]
+    reviewer_notes: str | None = ""
+    reviewed_by: str | None = "demo_reviewer"
 
 
 class PDFReportRequest(BaseModel):
@@ -141,6 +193,7 @@ app.mount(
     name="bridge_image_media",
 )
 app.mount("/artifacts", StaticFiles(directory=ARTIFACTS_DIR), name="artifacts")
+init_database()
 
 
 @app.get("/", include_in_schema=False)
@@ -151,6 +204,50 @@ def index() -> FileResponse:
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+@app.get("/cases", response_model=list[InspectionRunSummary])
+def cases(
+    limit: int = 25,
+    session: Session = Depends(get_session),
+) -> list[InspectionRunSummary]:
+    return [
+        _inspection_run_summary(record)
+        for record in list_inspection_runs(session, limit=min(max(limit, 1), 100))
+    ]
+
+
+@app.get("/cases/{run_id}", response_model=InspectionRunDetail)
+def case_detail(
+    run_id: str,
+    session: Session = Depends(get_session),
+) -> InspectionRunDetail:
+    record = get_inspection_run(session, run_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Inspection run not found.")
+    return _inspection_run_detail(record)
+
+
+@app.patch("/cases/{run_id}/review", response_model=InspectionRunDetail)
+def review_case(
+    run_id: str,
+    request: InspectionReviewRequest,
+    session: Session = Depends(get_session),
+) -> InspectionRunDetail:
+    try:
+        record = update_inspection_review(
+            session,
+            run_id=run_id,
+            review_status=request.review_status,
+            reviewer_notes=request.reviewer_notes,
+            reviewed_by=request.reviewed_by,
+        )
+    except ValueError as exc:
+        message = str(exc)
+        if "not found" in message:
+            raise HTTPException(status_code=404, detail=message) from exc
+        raise HTTPException(status_code=400, detail=message) from exc
+    return _inspection_run_detail(record)
 
 
 @app.get("/sample-images", response_model=list[SampleImage])
@@ -251,7 +348,12 @@ def upload_video(request: VideoUploadRequest) -> VideoUploadResponse:
 
 
 @app.post("/inspections", response_model=InspectionResponse)
-def create_inspection(request: InspectionRequest) -> InspectionResponse:
+def create_inspection(
+    request: InspectionRequest,
+    session: Session = Depends(get_session),
+) -> InspectionResponse:
+    request_data = request.model_dump()
+    run_record = create_inspection_run(session, request_data=request_data)
     asset_metadata: dict[str, Any] = {
         key: value
         for key, value in {
@@ -260,52 +362,65 @@ def create_inspection(request: InspectionRequest) -> InspectionResponse:
         }.items()
         if value is not None
     }
-    report = run_inspection_graph(
-        {
-            "asset_id": request.asset_id,
-            "asset_type": request.asset_type,
-            "asset_name": request.asset_name,
-            "location": request.location,
-            "criticality": request.criticality,
-            "asset_metadata": asset_metadata,
-            "notes": request.notes,
-            "image_paths": request.image_paths,
-            "video_paths": request.video_paths,
-            "reason": request.reason,
-        },
-        image_analyzer_mode=request.image_analyzer,
-        image_annotations_path=request.image_annotations_path,
-        image_prompt_profile=request.image_prompt_profile,
-        image_detail=request.image_detail,
-        image_tiling=request.image_tiling,
-        roboflow_confidence_threshold=request.roboflow_confidence_threshold,
-        roboflow_backend=request.roboflow_backend,
-        roboflow_class_mapping_profile=request.roboflow_class_mapping_profile,
-        roboflow_tiling=request.roboflow_tiling,
-        roboflow_class_thresholds=request.roboflow_class_thresholds,
-        roboflow_inference_confidence=request.roboflow_inference_confidence,
-        roboflow_inference_iou_threshold=request.roboflow_inference_iou_threshold,
-        video_sampler_mode=request.video_sampler,
-        video_frame_interval_seconds=request.video_frame_interval,
-        video_max_frames=request.video_max_frames,
-        severity_mode=request.severity_mode,
-        planning_mode=request.planning_mode,
-        scheduling_mode=request.scheduling_mode,
-        schedule_context_mode=request.schedule_context_mode,
-        event_provider=request.event_provider,
-        report_mode=request.report_mode,
-        llm_max_retries=request.llm_max_retries,
-        llm_failure_mode=request.llm_failure_mode,
-        rag_backend=request.rag_backend,
-        embedding_backend=request.embedding_backend,
-        embedding_model=request.embedding_model,
-        chroma_persist_dir=request.chroma_persist_dir,
-        rebuild_rag_index=request.rebuild_rag_index,
-        knowledge_corpus=request.knowledge_corpus,
-    )
+    try:
+        report = run_inspection_graph(
+            {
+                "asset_id": request.asset_id,
+                "asset_type": request.asset_type,
+                "asset_name": request.asset_name,
+                "location": request.location,
+                "criticality": request.criticality,
+                "asset_metadata": asset_metadata,
+                "notes": request.notes,
+                "image_paths": request.image_paths,
+                "video_paths": request.video_paths,
+                "reason": request.reason,
+            },
+            image_analyzer_mode=request.image_analyzer,
+            image_annotations_path=request.image_annotations_path,
+            image_prompt_profile=request.image_prompt_profile,
+            image_detail=request.image_detail,
+            image_tiling=request.image_tiling,
+            roboflow_confidence_threshold=request.roboflow_confidence_threshold,
+            roboflow_backend=request.roboflow_backend,
+            roboflow_class_mapping_profile=request.roboflow_class_mapping_profile,
+            roboflow_tiling=request.roboflow_tiling,
+            roboflow_class_thresholds=request.roboflow_class_thresholds,
+            roboflow_inference_confidence=request.roboflow_inference_confidence,
+            roboflow_inference_iou_threshold=request.roboflow_inference_iou_threshold,
+            video_sampler_mode=request.video_sampler,
+            video_frame_interval_seconds=request.video_frame_interval,
+            video_max_frames=request.video_max_frames,
+            severity_mode=request.severity_mode,
+            planning_mode=request.planning_mode,
+            scheduling_mode=request.scheduling_mode,
+            schedule_context_mode=request.schedule_context_mode,
+            event_provider=request.event_provider,
+            report_mode=request.report_mode,
+            llm_max_retries=request.llm_max_retries,
+            llm_failure_mode=request.llm_failure_mode,
+            rag_backend=request.rag_backend,
+            embedding_backend=request.embedding_backend,
+            embedding_model=request.embedding_model,
+            chroma_persist_dir=request.chroma_persist_dir,
+            rebuild_rag_index=request.rebuild_rag_index,
+            knowledge_corpus=request.knowledge_corpus,
+        )
+    except Exception as exc:
+        mark_inspection_failed(session, run_id=run_record.run_id, error=str(exc))
+        raise
+
     rendered_report = report.rendered_report or ""
+    report_payload = jsonable_encoder(asdict(report))
+    mark_inspection_completed(
+        session,
+        run_id=run_record.run_id,
+        report_json=report_payload,
+        rendered_report=rendered_report,
+    )
     return InspectionResponse(
-        report=asdict(report),
+        run_id=run_record.run_id,
+        report=report_payload,
         rendered_report=rendered_report,
     )
 
@@ -329,4 +444,43 @@ def export_report_pdf(request: PDFReportRequest) -> StreamingResponse:
         headers={
             "Content-Disposition": f'attachment; filename="{filename or "inspection-report"}.pdf"'
         },
+    )
+
+
+def _inspection_run_summary(record: InspectionRunRecord) -> InspectionRunSummary:
+    return InspectionRunSummary(
+        run_id=record.run_id,
+        case_id=record.case_id,
+        status=record.status,
+        asset_id=record.asset_id,
+        asset_type=record.asset_type,
+        asset_name=record.asset_name,
+        location=record.location,
+        criticality=record.criticality,
+        severity=record.severity,
+        repair_required=record.repair_required,
+        recommended_action=record.recommended_action,
+        schedule_start=record.schedule_start,
+        schedule_end=record.schedule_end,
+        workflow_trace_id=record.workflow_trace_id,
+        review_status=record.review_status,
+        reviewer_notes=record.reviewer_notes,
+        reviewed_by=record.reviewed_by,
+        reviewed_at=record.reviewed_at.isoformat() if record.reviewed_at else None,
+        created_at=record.created_at.isoformat(),
+        completed_at=record.completed_at.isoformat() if record.completed_at else None,
+    )
+
+
+def _inspection_run_detail(record: InspectionRunRecord) -> InspectionRunDetail:
+    summary = _inspection_run_summary(record).model_dump()
+    return InspectionRunDetail(
+        **summary,
+        image_count=record.image_count,
+        video_count=record.video_count,
+        request=record.request_json,
+        report=record.report_json,
+        rendered_report=record.rendered_report,
+        workflow_trace_path=record.workflow_trace_path,
+        error=record.error,
     )

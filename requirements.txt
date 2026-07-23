@@ -9,5 +9,7 @@ opencv-python>=4.10.0
 pillow>=10.0.0
 fastapi>=0.115.0
 uvicorn>=0.30.0
+sqlalchemy>=2.0.0
 inference>=0.28.0; python_version < "3.13"
 reportlab>=4.2.0
+langsmith>=0.1.0

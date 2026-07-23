@@ -195,6 +195,16 @@ Bridge dataset eval:
 python3 -m evals.bridge_dataset_eval
 ```
 
+RAG-only retrieval eval:
+
+```bash
+python3 -m evals.rag_retrieval_eval --embedding-backend fake
+```
+
+This writes JSON and Markdown reports under `artifacts/evals/` with top-1
+accuracy, top-k hit rate, wrong-defect retrieval rate, average citation count,
+and p50/p95/p99 retrieval latency.
+
 Image-inference eval against the same labels:
 
 ```bash

@@ -11,6 +11,7 @@ artifacts/annotated_images/
 artifacts/chroma/
 artifacts/evals/
 artifacts/traces/
+artifacts/*.db
 data/bridge_image/*.jpg
 data/bridge_image/*.jpeg
 data/bridge_image/*.png
