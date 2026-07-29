@@ -7,7 +7,7 @@ from uuid import uuid4
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
-from storage.models import InspectionRunRecord
+from storage.models import InspectionRunRecord, ToolRunRecord
 
 
 VALID_REVIEW_STATUSES = {
@@ -22,11 +22,13 @@ def create_inspection_run(
     session: Session,
     *,
     request_data: dict[str, Any],
+    run_id: str | None = None,
+    status: str = "running",
 ) -> InspectionRunRecord:
     record = InspectionRunRecord(
-        run_id=uuid4().hex,
+        run_id=run_id or uuid4().hex,
         case_id=None,
-        status="running",
+        status=status,
         asset_id=request_data["asset_id"],
         asset_type=request_data["asset_type"],
         asset_name=request_data["asset_name"],
@@ -56,6 +58,24 @@ def create_inspection_run(
     return record
 
 
+def mark_inspection_running(
+    session: Session,
+    *,
+    run_id: str,
+) -> InspectionRunRecord:
+    record = get_inspection_run(session, run_id)
+    if record is None:
+        raise ValueError(f"Inspection run not found: {run_id}")
+    if record.status == "completed" and record.report_json is not None:
+        return record
+
+    record.status = "running"
+    record.error = None
+    session.commit()
+    session.refresh(record)
+    return record
+
+
 def mark_inspection_completed(
     session: Session,
     *,
@@ -66,6 +86,8 @@ def mark_inspection_completed(
     record = get_inspection_run(session, run_id)
     if record is None:
         raise ValueError(f"Inspection run not found: {run_id}")
+    if record.status == "completed" and record.report_json is not None:
+        return record
 
     schedule = report_json.get("schedule") or {}
     recommended_window = schedule.get("recommended_window") or {}
@@ -96,6 +118,8 @@ def mark_inspection_failed(
     record = get_inspection_run(session, run_id)
     if record is None:
         raise ValueError(f"Inspection run not found: {run_id}")
+    if record.status == "completed" and record.report_json is not None:
+        return record
 
     record.status = "failed"
     record.error = error
@@ -150,3 +174,81 @@ def list_inspection_runs(
         .limit(limit)
     )
     return list(session.scalars(statement))
+
+
+def get_tool_run(
+    session: Session,
+    idempotency_key: str,
+) -> ToolRunRecord | None:
+    return session.get(ToolRunRecord, idempotency_key)
+
+
+def start_tool_run(
+    session: Session,
+    *,
+    idempotency_key: str,
+    run_id: str,
+    tool_name: str,
+    input_hash: str,
+    input_json: dict[str, Any],
+) -> ToolRunRecord:
+    existing = get_tool_run(session, idempotency_key)
+    if existing is not None:
+        return existing
+
+    record = ToolRunRecord(
+        idempotency_key=idempotency_key,
+        run_id=run_id,
+        tool_name=tool_name,
+        status="running",
+        input_hash=input_hash,
+        input_json=input_json,
+        output_json=None,
+        error=None,
+        completed_at=None,
+    )
+    session.add(record)
+    session.commit()
+    session.refresh(record)
+    return record
+
+
+def complete_tool_run(
+    session: Session,
+    *,
+    idempotency_key: str,
+    output_json: dict[str, Any],
+) -> ToolRunRecord:
+    record = get_tool_run(session, idempotency_key)
+    if record is None:
+        raise ValueError(f"Tool run not found: {idempotency_key}")
+    if record.status == "completed" and record.output_json is not None:
+        return record
+
+    record.status = "completed"
+    record.output_json = output_json
+    record.error = None
+    record.completed_at = datetime.now(UTC)
+    session.commit()
+    session.refresh(record)
+    return record
+
+
+def fail_tool_run(
+    session: Session,
+    *,
+    idempotency_key: str,
+    error: str,
+) -> ToolRunRecord:
+    record = get_tool_run(session, idempotency_key)
+    if record is None:
+        raise ValueError(f"Tool run not found: {idempotency_key}")
+    if record.status == "completed" and record.output_json is not None:
+        return record
+
+    record.status = "failed"
+    record.error = error
+    record.completed_at = datetime.now(UTC)
+    session.commit()
+    session.refresh(record)
+    return record

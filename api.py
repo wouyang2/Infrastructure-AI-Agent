@@ -3,31 +3,30 @@ from __future__ import annotations
 import base64
 import binascii
 import csv
-from dataclasses import asdict
+import os
 from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 from typing import Any, Literal
 
-from fastapi import Depends, FastAPI, HTTPException
-from fastapi.encoders import jsonable_encoder
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from agents.helpers.pdf_report import build_inspection_pdf
+from runtime.job_queue import build_inspection_job_queue
+from runtime.progress_store import build_progress_store
+from runtime.rate_limiter import build_rate_limiter
 from storage.database import get_session, init_database
 from storage.models import InspectionRunRecord
 from storage.repositories import (
     create_inspection_run,
     get_inspection_run,
     list_inspection_runs,
-    mark_inspection_completed,
-    mark_inspection_failed,
     update_inspection_review,
 )
-from workflows.inspection_graph import run_inspection_graph
 
 
 AnalyzerMode = Literal["heuristic", "metadata", "openai", "roboflow"]
@@ -52,9 +51,12 @@ ARTIFACTS_DIR.mkdir(parents=True, exist_ok=True)
 UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
 ALLOWED_UPLOAD_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp"}
 ALLOWED_VIDEO_UPLOAD_EXTENSIONS = {".mp4", ".mov", ".avi", ".mkv"}
+DEFAULT_MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
+DEFAULT_MAX_VIDEO_UPLOAD_BYTES = 250 * 1024 * 1024
 
 
 class InspectionRequest(BaseModel):
+    client_run_id: str | None = None
     asset_id: str = "A-100"
     asset_type: str = "bridge"
     asset_name: str = "Demo Overpass"
@@ -105,8 +107,13 @@ class InspectionRequest(BaseModel):
 
 class InspectionResponse(BaseModel):
     run_id: str | None = None
-    report: dict
-    rendered_report: str
+    status: str = "completed"
+    job_backend: str | None = None
+    job_id: str | None = None
+    progress_url: str | None = None
+    case_url: str | None = None
+    report: dict | None = None
+    rendered_report: str | None = None
 
 
 class InspectionRunSummary(BaseModel):
@@ -140,6 +147,17 @@ class InspectionRunDetail(InspectionRunSummary):
     rendered_report: str | None
     workflow_trace_path: str | None
     error: str | None
+
+
+class InspectionProgressResponse(BaseModel):
+    run_id: str
+    status: str
+    current_stage: str
+    message: str
+    percent: int
+    started_at: str
+    updated_at: str
+    events: list[dict[str, Any]]
 
 
 class InspectionReviewRequest(BaseModel):
@@ -194,6 +212,8 @@ app.mount(
 )
 app.mount("/artifacts", StaticFiles(directory=ARTIFACTS_DIR), name="artifacts")
 init_database()
+progress_store = build_progress_store()
+rate_limiter = build_rate_limiter()
 
 
 @app.get("/", include_in_schema=False)
@@ -226,6 +246,14 @@ def case_detail(
     if record is None:
         raise HTTPException(status_code=404, detail="Inspection run not found.")
     return _inspection_run_detail(record)
+
+
+@app.get("/cases/{run_id}/progress", response_model=InspectionProgressResponse)
+def case_progress(run_id: str) -> InspectionProgressResponse:
+    progress = progress_store.get_progress(run_id)
+    if progress is None:
+        raise HTTPException(status_code=404, detail="Inspection progress not found.")
+    return InspectionProgressResponse(**progress)
 
 
 @app.patch("/cases/{run_id}/review", response_model=InspectionRunDetail)
@@ -295,6 +323,12 @@ def upload_image(request: ImageUploadRequest) -> ImageUploadResponse:
             detail="Only JPG, PNG, and WEBP image uploads are supported.",
         )
 
+    max_bytes = int(os.getenv("MAX_IMAGE_UPLOAD_BYTES", str(DEFAULT_MAX_IMAGE_UPLOAD_BYTES)))
+    _validate_upload_size(
+        request.content_base64,
+        max_bytes=max_bytes,
+        label="image",
+    )
     try:
         image_bytes = base64.b64decode(request.content_base64, validate=True)
     except (binascii.Error, ValueError) as exc:
@@ -302,6 +336,7 @@ def upload_image(request: ImageUploadRequest) -> ImageUploadResponse:
 
     if not image_bytes:
         raise HTTPException(status_code=400, detail="Uploaded image is empty.")
+    _validate_decoded_upload_size(image_bytes, max_bytes=max_bytes, label="image")
 
     try:
         from PIL import Image
@@ -330,6 +365,12 @@ def upload_video(request: VideoUploadRequest) -> VideoUploadResponse:
             detail="Only MP4, MOV, AVI, and MKV video uploads are supported.",
         )
 
+    max_bytes = int(os.getenv("MAX_VIDEO_UPLOAD_BYTES", str(DEFAULT_MAX_VIDEO_UPLOAD_BYTES)))
+    _validate_upload_size(
+        request.content_base64,
+        max_bytes=max_bytes,
+        label="video",
+    )
     try:
         video_bytes = base64.b64decode(request.content_base64, validate=True)
     except (binascii.Error, ValueError) as exc:
@@ -337,6 +378,7 @@ def upload_video(request: VideoUploadRequest) -> VideoUploadResponse:
 
     if not video_bytes:
         raise HTTPException(status_code=400, detail="Uploaded video is empty.")
+    _validate_decoded_upload_size(video_bytes, max_bytes=max_bytes, label="video")
 
     output_name = f"{Path(original_name).stem[:60]}_{uuid4().hex[:10]}{extension}"
     output_path = UPLOADS_DIR / output_name
@@ -347,81 +389,63 @@ def upload_video(request: VideoUploadRequest) -> VideoUploadResponse:
     )
 
 
-@app.post("/inspections", response_model=InspectionResponse)
+@app.post("/inspections", response_model=InspectionResponse, status_code=202)
 def create_inspection(
     request: InspectionRequest,
+    http_request: Request,
+    background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ) -> InspectionResponse:
-    request_data = request.model_dump()
-    run_record = create_inspection_run(session, request_data=request_data)
-    asset_metadata: dict[str, Any] = {
-        key: value
-        for key, value in {
-            "latitude": request.latitude,
-            "longitude": request.longitude,
-        }.items()
-        if value is not None
-    }
-    try:
-        report = run_inspection_graph(
-            {
-                "asset_id": request.asset_id,
-                "asset_type": request.asset_type,
-                "asset_name": request.asset_name,
-                "location": request.location,
-                "criticality": request.criticality,
-                "asset_metadata": asset_metadata,
-                "notes": request.notes,
-                "image_paths": request.image_paths,
-                "video_paths": request.video_paths,
-                "reason": request.reason,
+    actor = http_request.client.host if http_request.client else "unknown"
+    rate_result = rate_limiter.check(
+        f"inspections:{actor}",
+        limit=int(os.getenv("INSPECTION_RATE_LIMIT", "100")),
+        window_seconds=int(os.getenv("INSPECTION_RATE_WINDOW_SECONDS", "60")),
+    )
+    if not rate_result.allowed:
+        raise HTTPException(
+            status_code=429,
+            detail=(
+                "Inspection rate limit exceeded. "
+                f"Try again in about {rate_result.reset_seconds} seconds."
+            ),
+            headers={
+                "Retry-After": str(rate_result.reset_seconds),
+                "X-RateLimit-Limit": str(rate_result.limit),
+                "X-RateLimit-Remaining": str(rate_result.remaining),
             },
-            image_analyzer_mode=request.image_analyzer,
-            image_annotations_path=request.image_annotations_path,
-            image_prompt_profile=request.image_prompt_profile,
-            image_detail=request.image_detail,
-            image_tiling=request.image_tiling,
-            roboflow_confidence_threshold=request.roboflow_confidence_threshold,
-            roboflow_backend=request.roboflow_backend,
-            roboflow_class_mapping_profile=request.roboflow_class_mapping_profile,
-            roboflow_tiling=request.roboflow_tiling,
-            roboflow_class_thresholds=request.roboflow_class_thresholds,
-            roboflow_inference_confidence=request.roboflow_inference_confidence,
-            roboflow_inference_iou_threshold=request.roboflow_inference_iou_threshold,
-            video_sampler_mode=request.video_sampler,
-            video_frame_interval_seconds=request.video_frame_interval,
-            video_max_frames=request.video_max_frames,
-            severity_mode=request.severity_mode,
-            planning_mode=request.planning_mode,
-            scheduling_mode=request.scheduling_mode,
-            schedule_context_mode=request.schedule_context_mode,
-            event_provider=request.event_provider,
-            report_mode=request.report_mode,
-            llm_max_retries=request.llm_max_retries,
-            llm_failure_mode=request.llm_failure_mode,
-            rag_backend=request.rag_backend,
-            embedding_backend=request.embedding_backend,
-            embedding_model=request.embedding_model,
-            chroma_persist_dir=request.chroma_persist_dir,
-            rebuild_rag_index=request.rebuild_rag_index,
-            knowledge_corpus=request.knowledge_corpus,
         )
-    except Exception as exc:
-        mark_inspection_failed(session, run_id=run_record.run_id, error=str(exc))
-        raise
 
-    rendered_report = report.rendered_report or ""
-    report_payload = jsonable_encoder(asdict(report))
-    mark_inspection_completed(
+    request_data = request.model_dump()
+    run_record = create_inspection_run(
         session,
+        request_data=request_data,
+        run_id=request.client_run_id,
+        status="queued",
+    )
+    progress_store.start_run(run_record.run_id)
+    dispatch = build_inspection_job_queue(
+        background_tasks,
+        progress_store=progress_store,
+    ).enqueue_inspection(
         run_id=run_record.run_id,
-        report_json=report_payload,
-        rendered_report=rendered_report,
+        request_data=request_data,
+    )
+    progress_store.record_event(
+        run_record.run_id,
+        stage="queued",
+        status="running",
+        message=f"Inspection job queued via {dispatch.backend}.",
+        percent=0,
+        metadata={"job_id": dispatch.job_id, "job_backend": dispatch.backend},
     )
     return InspectionResponse(
         run_id=run_record.run_id,
-        report=report_payload,
-        rendered_report=rendered_report,
+        status="queued",
+        job_backend=dispatch.backend,
+        job_id=dispatch.job_id,
+        progress_url=f"/cases/{run_record.run_id}/progress",
+        case_url=f"/cases/{run_record.run_id}",
     )
 
 
@@ -470,6 +494,53 @@ def _inspection_run_summary(record: InspectionRunRecord) -> InspectionRunSummary
         created_at=record.created_at.isoformat(),
         completed_at=record.completed_at.isoformat() if record.completed_at else None,
     )
+
+
+def _validate_upload_size(
+    content_base64: str,
+    *,
+    max_bytes: int,
+    label: str,
+) -> None:
+    estimated_size = _estimated_decoded_size(content_base64)
+    if estimated_size > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"Uploaded {label} is too large. "
+                f"Limit is {_format_bytes(max_bytes)}."
+            ),
+        )
+
+
+def _validate_decoded_upload_size(
+    payload: bytes,
+    *,
+    max_bytes: int,
+    label: str,
+) -> None:
+    if len(payload) > max_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=(
+                f"Uploaded {label} is too large. "
+                f"Limit is {_format_bytes(max_bytes)}."
+            ),
+        )
+
+
+def _estimated_decoded_size(content_base64: str) -> int:
+    normalized = "".join(content_base64.split())
+    padding = normalized.count("=")
+    return max(0, (len(normalized) * 3 // 4) - padding)
+
+
+def _format_bytes(value: int) -> str:
+    if value >= 1024 * 1024:
+        return f"{value / (1024 * 1024):.1f} MB"
+    if value >= 1024:
+        return f"{value / 1024:.1f} KB"
+    return f"{value} bytes"
 
 
 def _inspection_run_detail(record: InspectionRunRecord) -> InspectionRunDetail:

@@ -12,6 +12,7 @@ const refreshCasesButton = document.querySelector("#refresh-cases-button");
 const caseHistory = document.querySelector("#case-history");
 const reviewSummary = document.querySelector("#review-summary");
 const reviewNotes = document.querySelector("#review-notes");
+const progressPanel = document.querySelector("#progress-panel");
 
 const caseTitle = document.querySelector("#case-title");
 const metricSeverity = document.querySelector("#metric-severity");
@@ -24,6 +25,14 @@ const planBlock = document.querySelector("#plan");
 const formalReport = document.querySelector("#formal-report");
 let latestInspectionPayload = null;
 let selectedRunId = null;
+let progressPollTimer = null;
+
+function makeRunId() {
+  if (crypto.randomUUID) {
+    return crypto.randomUUID().replaceAll("-", "");
+  }
+  return `run_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
 
 function setStatus(label, state) {
   statusPill.textContent = label;
@@ -225,6 +234,75 @@ function stripMarkdownSyntax(text) {
     .join("\n");
 }
 
+function renderProgress(progress) {
+  const events = progress.events || [];
+  const recentEvents = events.slice(-4).reverse();
+  progressPanel.innerHTML = `
+    <div class="progress-head">
+      <div>
+        <span>Live Progress</span>
+        <strong>${escapeHtml(sentenceCase(progress.current_stage))}: ${escapeHtml(progress.message)}</strong>
+      </div>
+      <span>${escapeHtml(progress.percent)}%</span>
+    </div>
+    <div class="progress-track">
+      <div class="progress-fill" style="width: ${Math.max(0, Math.min(100, Number(progress.percent || 0)))}%"></div>
+    </div>
+    <div class="progress-events">
+      ${recentEvents
+        .map(
+          (event) =>
+            `<div><strong>${escapeHtml(sentenceCase(event.stage))}</strong>${escapeHtml(event.message)}</div>`,
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderProgressPlaceholder(message) {
+  progressPanel.innerHTML = `
+    <div class="progress-head">
+      <div>
+        <span>Live Progress</span>
+        <strong>${escapeHtml(message)}</strong>
+      </div>
+      <span>0%</span>
+    </div>
+    <div class="progress-track"><div class="progress-fill" style="width: 0%"></div></div>
+  `;
+}
+
+function stopProgressPolling() {
+  if (progressPollTimer) {
+    clearInterval(progressPollTimer);
+    progressPollTimer = null;
+  }
+}
+
+function startProgressPolling(runId, onTerminalStatus = null) {
+  stopProgressPolling();
+  renderProgressPlaceholder("Waiting for workflow to start...");
+
+  const poll = async () => {
+    try {
+      const response = await fetch(`/cases/${encodeURIComponent(runId)}/progress`);
+      if (response.status === 404) return;
+      if (!response.ok) throw new Error(await response.text());
+      const progress = await response.json();
+      renderProgress(progress);
+      if (progress.status === "completed" || progress.status === "failed") {
+        stopProgressPolling();
+        if (onTerminalStatus) await onTerminalStatus(progress);
+      }
+    } catch (error) {
+      renderProgressPlaceholder(error.message);
+    }
+  };
+
+  poll();
+  progressPollTimer = setInterval(poll, 1000);
+}
+
 function renderNarrative(text) {
   const cleaned = stripMarkdownSyntax(text);
   if (!cleaned) return "";
@@ -399,6 +477,7 @@ async function loadCaseDetail(runId) {
   }
   const caseDetail = await response.json();
   renderReviewSummary(caseDetail);
+  return caseDetail;
 }
 
 async function loadCases() {
@@ -537,28 +616,46 @@ form.addEventListener("submit", async (event) => {
   exportReportButton.disabled = true;
   latestInspectionPayload = null;
   formalReport.innerHTML = '<div class="empty-report">Running the inspection workflow...</div>';
+  const runId = makeRunId();
+  const payload = formPayload();
+  payload.client_run_id = runId;
+  startProgressPolling(runId, async (progress) => {
+    await loadCases();
+    const caseDetail = await loadCaseDetail(runId);
+    if (progress.status === "failed") {
+      setStatus("Error", "error");
+      formalReport.innerHTML = `<div class="empty-report">${escapeHtml(caseDetail.error || progress.message)}</div>`;
+      runButton.disabled = false;
+      return;
+    }
+    if (caseDetail.report) {
+      renderResult({
+        run_id: caseDetail.run_id,
+        report: caseDetail.report,
+        rendered_report: caseDetail.rendered_report || "",
+      });
+      setStatus("Complete", "done");
+      runButton.disabled = false;
+    }
+  });
 
   try {
     const response = await fetch("/inspections", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(formPayload()),
+      body: JSON.stringify(payload),
     });
     if (!response.ok) {
       const errorText = await response.text();
       throw new Error(errorText);
     }
-    const payload = await response.json();
-    renderResult(payload);
-    await loadCases();
-    if (payload.run_id) {
-      await loadCaseDetail(payload.run_id);
-    }
-    setStatus("Complete", "done");
+    const responsePayload = await response.json();
+    selectedRunId = responsePayload.run_id;
+    setStatus("Queued", "running");
   } catch (error) {
     setStatus("Error", "error");
     formalReport.innerHTML = `<div class="empty-report">${escapeHtml(error.message)}</div>`;
-  } finally {
+    stopProgressPolling();
     runButton.disabled = false;
   }
 });

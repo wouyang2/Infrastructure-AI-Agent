@@ -32,6 +32,22 @@ from models import (
     SeverityAssessment,
 )
 from rag.retriever_factory import build_retriever
+from runtime.checkpoints import get_memory_checkpointer
+
+
+ProgressCallback = Any
+
+
+NODE_PROGRESS = {
+    "intake": 10,
+    "evidence": 25,
+    "severity": 40,
+    "maintenance_planning": 55,
+    "monitoring_plan": 65,
+    "schedule_context": 70,
+    "scheduling": 85,
+    "report": 95,
+}
 
 
 def _load_dotenv_if_available() -> None:
@@ -131,6 +147,8 @@ def build_inspection_graph(
     knowledge_corpus: str = "merged",
     trace_output_dir: str = "artifacts/traces",
     enable_workflow_trace: bool = True,
+    enable_memory_checkpoint: bool = True,
+    progress_callback: ProgressCallback | None = None,
 ):
     _load_dotenv_if_available()
 
@@ -214,38 +232,70 @@ def build_inspection_graph(
     graph = StateGraph(InspectionGraphState)
 
     def traced_node(name: str, node):
-        if workflow_trace is None:
+        if workflow_trace is None and progress_callback is None:
             return node
 
         def wrapped(state: InspectionGraphState) -> InspectionGraphState:
+            _record_progress(
+                progress_callback,
+                stage=name,
+                status="running",
+                message=f"{name.replace('_', ' ').title()} started.",
+                percent=max(NODE_PROGRESS.get(name, 0) - 5, 1),
+            )
             started_at = time_ms()
             try:
                 output = node(state)
             except Exception as exc:
-                workflow_trace.record_node(
-                    node_name=name,
-                    status="error",
-                    duration_ms=time_ms() - started_at,
-                    error=str(exc),
+                duration_ms = time_ms() - started_at
+                if workflow_trace is not None:
+                    workflow_trace.record_node(
+                        node_name=name,
+                        status="error",
+                        duration_ms=duration_ms,
+                        error=str(exc),
+                    )
+                _record_progress(
+                    progress_callback,
+                    stage=name,
+                    status="failed",
+                    message=f"{name.replace('_', ' ').title()} failed: {exc}",
+                    percent=NODE_PROGRESS.get(name, 100),
+                    metadata={"duration_ms": round(duration_ms, 3)},
                 )
                 raise
 
-            workflow_trace.record_node(
-                node_name=name,
-                status="ok",
-                duration_ms=time_ms() - started_at,
-                output_keys=sorted(output.keys()),
+            duration_ms = time_ms() - started_at
+            output_keys = sorted(output.keys())
+            if workflow_trace is not None:
+                workflow_trace.record_node(
+                    node_name=name,
+                    status="ok",
+                    duration_ms=duration_ms,
+                    output_keys=output_keys,
+                )
+            _record_progress(
+                progress_callback,
+                stage=name,
+                status="running",
+                message=f"{name.replace('_', ' ').title()} completed.",
+                percent=NODE_PROGRESS.get(name, 95),
+                metadata={
+                    "duration_ms": round(duration_ms, 3),
+                    "output_keys": output_keys,
+                },
             )
             if name == "report" and "report" in output:
                 report = output["report"]
-                trace_path = workflow_trace.write(
-                    case_id=report.case.case_id,
-                    repair_required=report.severity.repair_required,
-                    severity=report.severity.severity,
-                )
-                report.workflow_trace_id = workflow_trace.trace_id
-                report.workflow_trace_path = trace_path
-                output["workflow_trace_path"] = trace_path
+                if workflow_trace is not None:
+                    trace_path = workflow_trace.write(
+                        case_id=report.case.case_id,
+                        repair_required=report.severity.repair_required,
+                        severity=report.severity.severity,
+                    )
+                    report.workflow_trace_id = workflow_trace.trace_id
+                    report.workflow_trace_path = trace_path
+                    output["workflow_trace_path"] = trace_path
             return output
 
         return wrapped
@@ -363,6 +413,8 @@ def build_inspection_graph(
     graph.add_edge("scheduling", "report")
     graph.add_edge("report", END)
 
+    if enable_memory_checkpoint:
+        return graph.compile(checkpointer=get_memory_checkpointer())
     return graph.compile()
 
 
@@ -407,6 +459,9 @@ def run_inspection_graph(
     knowledge_corpus: str = "merged",
     trace_output_dir: str = "artifacts/traces",
     enable_workflow_trace: bool = True,
+    enable_memory_checkpoint: bool = True,
+    checkpoint_thread_id: str | None = None,
+    progress_callback: ProgressCallback | None = None,
 ) -> InspectionReport:
     graph = build_inspection_graph(
         image_analyzer_mode=image_analyzer_mode,
@@ -447,6 +502,35 @@ def run_inspection_graph(
         knowledge_corpus=knowledge_corpus,
         trace_output_dir=trace_output_dir,
         enable_workflow_trace=enable_workflow_trace,
+        enable_memory_checkpoint=enable_memory_checkpoint,
+        progress_callback=progress_callback,
     )
-    result = graph.invoke({"input": input_values})
+    config = None
+    if enable_memory_checkpoint:
+        config = {
+            "configurable": {
+                "thread_id": checkpoint_thread_id or input_values.get("asset_id", "inspection-run"),
+            }
+        }
+    result = graph.invoke({"input": input_values}, config=config)
     return result["report"]
+
+
+def _record_progress(
+    callback: ProgressCallback | None,
+    *,
+    stage: str,
+    status: str,
+    message: str,
+    percent: int,
+    metadata: dict[str, Any] | None = None,
+) -> None:
+    if callback is None:
+        return
+    callback(
+        stage=stage,
+        status=status,
+        message=message,
+        percent=percent,
+        metadata=metadata,
+    )

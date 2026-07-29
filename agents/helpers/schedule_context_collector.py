@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from hashlib import sha256
 from datetime import datetime, timezone
 from typing import Any
 from urllib.parse import urlencode
@@ -14,6 +15,7 @@ from models import (
     TrafficContext,
     WeatherContext,
 )
+from runtime.cache_store import CacheStore, build_cache_store
 
 
 def _load_dotenv_if_available() -> None:
@@ -43,6 +45,23 @@ def _window_datetime(window: dict[str, Any]) -> datetime:
 def _read_json_url(url: str, *, timeout: int = 20) -> dict[str, Any]:
     with urlopen(url, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
+
+
+def _cached_json(
+    *,
+    cache_store: CacheStore | None,
+    cache_key: str,
+    ttl_seconds: int,
+    fetcher,
+) -> dict[str, Any]:
+    if cache_store is not None:
+        cached = cache_store.get_json(cache_key)
+        if cached is not None:
+            return cached
+    payload = fetcher()
+    if cache_store is not None:
+        cache_store.set_json(cache_key, payload, ttl_seconds=ttl_seconds)
+    return payload
 
 
 def _first_env_value(*names: str) -> str | None:
@@ -165,6 +184,8 @@ class OpenWeatherContextTool(WeatherContextTool):
         api_key: str | None = None,
         units: str = "metric",
         http_get: Any | None = None,
+        cache_store: CacheStore | None = None,
+        cache_ttl_seconds: int = 900,
     ):
         _load_dotenv_if_available()
         self.api_key = api_key or _first_env_value(
@@ -173,6 +194,8 @@ class OpenWeatherContextTool(WeatherContextTool):
         )
         self.units = units
         self.http_get = http_get or _read_json_url
+        self.cache_store = cache_store
+        self.cache_ttl_seconds = cache_ttl_seconds
 
     def collect(
         self,
@@ -200,7 +223,13 @@ class OpenWeatherContextTool(WeatherContextTool):
                 "units": self.units,
             }
         )
-        payload = self.http_get(f"https://api.openweathermap.org/data/2.5/forecast?{query}")
+        url = f"https://api.openweathermap.org/data/2.5/forecast?{query}"
+        payload = _cached_json(
+            cache_store=self.cache_store,
+            cache_key=_cache_key("openweather", url),
+            ttl_seconds=self.cache_ttl_seconds,
+            fetcher=lambda: self.http_get(url),
+        )
         forecast = self._nearest_forecast(payload, _window_datetime(window))
         condition = self._condition(forecast)
         risk_score = self._risk_score(forecast)
@@ -265,11 +294,15 @@ class TomTomTrafficContextTool(TrafficContextTool):
         api_key: str | None = None,
         zoom: int = 10,
         http_get: Any | None = None,
+        cache_store: CacheStore | None = None,
+        cache_ttl_seconds: int = 300,
     ):
         _load_dotenv_if_available()
         self.api_key = api_key or os.getenv("TOMTOM_API_KEY")
         self.zoom = zoom
         self.http_get = http_get or _read_json_url
+        self.cache_store = cache_store
+        self.cache_ttl_seconds = cache_ttl_seconds
 
     def collect(
         self,
@@ -289,7 +322,12 @@ class TomTomTrafficContextTool(TrafficContextTool):
             "https://api.tomtom.com/traffic/services/4/flowSegmentData/"
             f"absolute/{self.zoom}/json?{query}"
         )
-        payload = self.http_get(url)
+        payload = _cached_json(
+            cache_store=self.cache_store,
+            cache_key=_cache_key("tomtom", url),
+            ttl_seconds=self.cache_ttl_seconds,
+            fetcher=lambda: self.http_get(url),
+        )
         data = payload.get("flowSegmentData", payload)
         risk_score, impact = self._risk(data)
         rationale = self._rationale(data, risk_score)
@@ -328,11 +366,15 @@ class TicketmasterEventContextTool(CityEventContextTool):
         api_key: str | None = None,
         radius_miles: int = 5,
         http_get: Any | None = None,
+        cache_store: CacheStore | None = None,
+        cache_ttl_seconds: int = 1800,
     ):
         _load_dotenv_if_available()
         self.api_key = api_key or os.getenv("TICKETMASTER_API_KEY")
         self.radius_miles = radius_miles
         self.http_get = http_get or _read_json_url
+        self.cache_store = cache_store
+        self.cache_ttl_seconds = cache_ttl_seconds
 
     def collect(
         self,
@@ -361,7 +403,13 @@ class TicketmasterEventContextTool(CityEventContextTool):
                 "sort": "date,asc",
             }
         )
-        payload = self.http_get(f"https://app.ticketmaster.com/discovery/v2/events.json?{query}")
+        url = f"https://app.ticketmaster.com/discovery/v2/events.json?{query}"
+        payload = _cached_json(
+            cache_store=self.cache_store,
+            cache_key=_cache_key("ticketmaster", url),
+            ttl_seconds=self.cache_ttl_seconds,
+            fetcher=lambda: self.http_get(url),
+        )
         events = payload.get("_embedded", {}).get("events", [])
         if not events:
             return EventContext(start, "No nearby ticketed events", 0, "Ticketmaster found no nearby events during the repair window.")
@@ -445,18 +493,24 @@ def build_schedule_context_collector(
     if mode != "live":
         raise ValueError(f"Unsupported schedule context mode: {mode}")
 
+    cache_store = build_cache_store()
+
     if event_provider == "mock":
         event_tool: CityEventContextTool = MockCityEventContextTool(
             (context_data or {}).get("events", {})
         )
     elif event_provider == "ticketmaster":
-        event_tool = TicketmasterEventContextTool()
+        event_tool = TicketmasterEventContextTool(cache_store=cache_store)
     else:
         raise ValueError(f"Unsupported event provider: {event_provider}")
 
     return MockScheduleContextCollector(
         context_data,
-        weather_tool=OpenWeatherContextTool(),
-        traffic_tool=TomTomTrafficContextTool(),
+        weather_tool=OpenWeatherContextTool(cache_store=cache_store),
+        traffic_tool=TomTomTrafficContextTool(cache_store=cache_store),
         event_tool=event_tool,
     )
+
+
+def _cache_key(provider: str, url: str) -> str:
+    return f"schedule_context:{provider}:{sha256(url.encode('utf-8')).hexdigest()}"

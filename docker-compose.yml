@@ -1,0 +1,55 @@
+services:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: ["redis-server", "--appendonly", "yes"]
+
+  api:
+    build: .
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:///artifacts/infra_agent.db
+      REDIS_URL: redis://redis:6379/0
+      PROGRESS_STORE_BACKEND: redis
+      CACHE_STORE_BACKEND: redis
+      RATE_LIMIT_BACKEND: redis
+      INSPECTION_JOB_BACKEND: rq
+      RQ_INSPECTION_QUEUE: inspection-jobs
+      RQ_INSPECTION_JOB_TIMEOUT_SECONDS: 900
+      RQ_INSPECTION_RETRY_MAX_ATTEMPTS: 3
+      RQ_INSPECTION_RETRY_INTERVALS_SECONDS: 10,30,60
+    volumes:
+      - infra-artifacts:/app/artifacts
+    depends_on:
+      - redis
+
+  worker:
+    build: .
+    command: ["rq", "worker", "inspection-jobs", "--url", "redis://redis:6379/0"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: sqlite:///artifacts/infra_agent.db
+      REDIS_URL: redis://redis:6379/0
+      PROGRESS_STORE_BACKEND: redis
+      CACHE_STORE_BACKEND: redis
+      RATE_LIMIT_BACKEND: redis
+      INSPECTION_JOB_BACKEND: rq
+      RQ_INSPECTION_QUEUE: inspection-jobs
+      RQ_INSPECTION_JOB_TIMEOUT_SECONDS: 900
+      RQ_INSPECTION_RETRY_MAX_ATTEMPTS: 3
+      RQ_INSPECTION_RETRY_INTERVALS_SECONDS: 10,30,60
+    volumes:
+      - infra-artifacts:/app/artifacts
+    depends_on:
+      - redis
+
+volumes:
+  redis-data:
+  infra-artifacts:

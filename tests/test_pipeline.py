@@ -46,6 +46,7 @@ from agents.helpers.severity_rationale_generator import (
     LLM_SEVERITY_FAILURE_NOTE,
     LLMSeverityRationaleGenerator,
 )
+from runtime.cache_store import InMemoryCacheStore
 from agents.helpers.video_sampler import OpenCVVideoFrameSampler
 from agents.maintenance_planning_agent import MaintenancePlanningAgent
 from agents.scheduling_agent import SchedulingAgent
@@ -2712,6 +2713,54 @@ def test_openweather_context_tool_maps_forecast_payload() -> None:
     assert context.condition == "Rain"
     assert context.risk_score == 9
     assert "OpenWeather forecast" in context.rationale
+
+
+def test_openweather_context_tool_uses_cache_for_repeated_requests() -> None:
+    case = InspectionCase(
+        case_id="CASE-LIVE",
+        asset=Asset(
+            asset_id="A-LIVE",
+            asset_type="bridge",
+            name="Live Bridge",
+            location="Downtown",
+            criticality="high",
+            metadata={"latitude": 40.75, "longitude": -73.99},
+        ),
+        reason="routine",
+        evidence=[],
+    )
+    window = {
+        "start": "2026-06-18T22:00:00",
+        "end": "2026-06-19T06:00:00",
+    }
+    calls = {"count": 0}
+
+    def fake_get(url: str) -> dict:
+        calls["count"] += 1
+        return {
+            "list": [
+                {
+                    "dt": 1781816400,
+                    "weather": [{"main": "Clear"}],
+                    "pop": 0.0,
+                    "wind": {"speed": 2},
+                }
+            ]
+        }
+
+    tool = OpenWeatherContextTool(
+        api_key="test-key",
+        http_get=fake_get,
+        cache_store=InMemoryCacheStore(),
+        cache_ttl_seconds=60,
+    )
+
+    first = tool.collect(case, window)
+    second = tool.collect(case, window)
+
+    assert first.condition == "Clear"
+    assert second.condition == "Clear"
+    assert calls["count"] == 1
 
 
 def test_openweather_context_tool_accepts_open_weather_env_alias(monkeypatch) -> None:

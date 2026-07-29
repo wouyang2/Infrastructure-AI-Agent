@@ -21,6 +21,7 @@ Multi-agent AI prototype for bridge infrastructure inspection, severity assessme
 - `evals/` - Dataset and detector evaluation scripts.
 - `static/` - Browser UI for testing and presentation.
 - `tests/` - Unit, integration, API, RAG, eval, and workflow tests.
+- `docs/production-limitations.md` - Production limitation tracker and hardening roadmap.
 - `docs/resume-project-summary.md` - Resume-oriented project summary and bullet points.
 
 ## Setup
@@ -35,6 +36,15 @@ Create a local `.env` file for optional live integrations:
 
 ```bash
 DATABASE_URL=sqlite:///artifacts/infra_agent.db
+PROGRESS_STORE_BACKEND=memory
+CACHE_STORE_BACKEND=memory
+RATE_LIMIT_BACKEND=memory
+INSPECTION_JOB_BACKEND=background
+INSPECTION_RATE_LIMIT=100
+INSPECTION_RATE_WINDOW_SECONDS=60
+MAX_IMAGE_UPLOAD_BYTES=10485760
+MAX_VIDEO_UPLOAD_BYTES=262144000
+REDIS_URL=redis://localhost:6379/0
 OPENAI_API_KEY=...
 ROBOFLOW_API_KEY=...
 ROBOFLOW_MODEL_ID=...
@@ -51,6 +61,90 @@ PostgreSQL, set `DATABASE_URL` to a SQLAlchemy URL such as:
 ```bash
 DATABASE_URL=postgresql+psycopg://user:password@localhost:5432/infra_agent
 ```
+
+Progress tracking defaults to in-memory state for local development. To use
+Redis for temporary workflow progress state, short-lived provider caches, and
+shared API rate limits:
+
+```bash
+PROGRESS_STORE_BACKEND=redis
+CACHE_STORE_BACKEND=redis
+RATE_LIMIT_BACKEND=redis
+REDIS_URL=redis://localhost:6379/0
+```
+
+Inspection jobs default to FastAPI background tasks, which is simple for local
+development:
+
+```bash
+INSPECTION_JOB_BACKEND=background
+```
+
+For a Redis-backed worker queue, use RQ:
+
+```bash
+INSPECTION_JOB_BACKEND=rq
+PROGRESS_STORE_BACKEND=redis
+REDIS_URL=redis://localhost:6379/0
+RQ_INSPECTION_QUEUE=inspection-jobs
+RQ_INSPECTION_JOB_TIMEOUT_SECONDS=900
+RQ_INSPECTION_RETRY_MAX_ATTEMPTS=3
+RQ_INSPECTION_RETRY_INTERVALS_SECONDS=10,30,60
+```
+
+Then start a worker in another terminal:
+
+```bash
+rq worker inspection-jobs --url redis://localhost:6379/0
+```
+
+With RQ, the API process only creates the SQL row and enqueues the job. The RQ
+worker runs `runtime.inspection_jobs.execute_inspection_run`, updates progress,
+and writes the final report back to SQL.
+Completed inspection rows are guarded against late retry downgrades: if a job
+with the same `run_id` runs after the row is already completed, the worker exits
+without rewriting the completed report.
+RQ retries are enabled by default for transient failures: the worker retries a
+failed job 3 times after 10, 30, and 60 seconds. This reruns the inspection job;
+it does not yet resume from the exact failed LangGraph node.
+LangGraph memory checkpointing is enabled with `thread_id=run_id`, so graph
+state is checkpointed during a run inside the active Python process. These
+memory checkpoints are useful for the graph resume interface, but they are not
+durable across container crashes. Durable resume would require a Redis,
+Postgres, or SQLite LangGraph checkpointer.
+Final report persistence is protected by a SQL `tool_runs` idempotency record:
+`{run_id}:persist_inspection_report:v1`. If a retry reaches the same persistence
+step again, the stored tool output is returned instead of writing the completed
+inspection report twice.
+
+## Run With Docker
+
+This project now includes a Docker setup for Redis, the FastAPI app, and an RQ
+worker. The Redis service is the actual Redis server used by progress tracking,
+provider caching, rate limiting, and RQ job storage.
+
+Requires Docker Compose v2, where the command is `docker compose`.
+
+```bash
+docker compose up --build
+```
+
+Open:
+
+```text
+http://127.0.0.1:8001/
+```
+
+The compose stack runs:
+
+```text
+redis   -> Redis server with append-only persistence
+api     -> FastAPI UI/API, submits inspection jobs
+worker  -> RQ worker, executes inspection jobs
+```
+
+In Docker, `REDIS_URL` is `redis://redis:6379/0` because `redis` is the Compose
+service name. Outside Docker, use `redis://localhost:6379/0`.
 
 ## Run The UI
 
@@ -69,13 +163,52 @@ Useful persistence endpoints:
 ```text
 GET /cases
 GET /cases/{run_id}
+GET /cases/{run_id}/progress
 PATCH /cases/{run_id}/review
 POST /inspections
 ```
 
-Each inspection creates a durable `inspection_runs` database row with request
-input, workflow status, severity, repair decision, schedule window, report JSON,
-rendered report text, workflow trace IDs, and human review status.
+Each inspection request creates a durable `inspection_runs` database row, returns
+a `run_id`, and then runs the workflow in a FastAPI background task. Clients
+should treat `POST /inspections` as a job-submission endpoint:
+
+```text
+POST /inspections              -> returns run_id, status=queued
+GET /cases/{run_id}/progress   -> live workflow progress
+GET /cases/{run_id}            -> completed report, status, errors, and review state
+```
+
+The database row stores request input, workflow status, severity, repair
+decision, schedule window, report JSON, rendered report text, workflow trace
+IDs, and human review status.
+Progress state is stored separately in memory or Redis because it is temporary
+runtime state rather than durable inspection history.
+Live scheduling provider responses can also use Redis as a short-lived cache
+to reduce repeat OpenWeather, TomTom, and Ticketmaster calls.
+The inspection endpoint also has a fixed-window rate limit. By default local
+development allows 100 inspection runs per client per 60 seconds; tune
+`INSPECTION_RATE_LIMIT` and `INSPECTION_RATE_WINDOW_SECONDS` for demos or
+production.
+
+Redis is used in three different runtime patterns:
+
+- **Progress snapshot:** `infra_agent:progress:{run_id}` stores the latest node
+  status and event list for live UI polling. The UI polls
+  `GET /cases/{run_id}/progress` once per second while a run is active.
+- **External API cache:** `infra_agent:cache:{provider}:{hash}` stores recent
+  OpenWeather, TomTom, and Ticketmaster JSON responses with a 5-15 minute TTL.
+  Example: the first weather request calls OpenWeather and stores the JSON; the
+  next matching request within the TTL reads Redis and skips the external call.
+- **Rate limit counter:** `infra_agent:rate_limit:{operation}:{client}:{window}`
+  is incremented for each expensive inspection request and expires at the end of
+  the window. If the counter exceeds the configured limit, the API returns
+  `429 Too Many Requests` with a `Retry-After` header.
+- **Job queue:** RQ stores pending inspection jobs in Redis lists and registries.
+  The job payload contains the `run_id` and request data; SQL remains the source
+  of truth for final inspection status and reports.
+- **Tool idempotency:** SQL `tool_runs` records store stable tool
+  `idempotency_key` values, input hashes, and completed outputs so side-effecting
+  tools can return prior outputs during retries.
 
 ## Run The CLI
 
@@ -105,7 +238,7 @@ python3 -m pytest -q
 Latest local status:
 
 ```text
-135 passed, 1 warning
+152 passed, 1 warning
 ```
 
 ## Evaluation
@@ -197,13 +330,19 @@ Current status: **production-aware MVP**. The system demonstrates the architectu
 - [x] Formal PDF report export
 - [x] SQLite persistence layer with PostgreSQL-ready SQLAlchemy configuration
 - [x] Basic human review and approval workflow
+- [x] Background inspection execution through FastAPI or RQ job submission
+- [x] Redis-compatible progress state, live-context cache, and rate limiter with in-memory fallback
+- [x] Live UI workflow progress polling
 - [x] Unit and integration tests
 - [x] Workflow run traces written to ignored JSON artifacts
 - [ ] Real maintenance and repair-history RAG corpus
 - [ ] Production PostgreSQL deployment and Alembic migrations
 - [ ] Authentication and role-based access
-- [ ] Background job queue for long video/vision processing
-- [ ] Redis-backed progress state, caching, rate limits, and distributed locks
+- [x] Redis Queue option for long video/vision processing
+- [x] Basic SQL idempotency guard for duplicate completed inspection jobs
+- [x] LangGraph memory checkpointing with stable run/thread IDs
+- [x] SQL-backed tool-run idempotency for final report persistence
+- [ ] Redis-backed distributed locks and job queues
 - [ ] Editable human review workflow with reviewer identity and audit history
 - [ ] Observability dashboard for traces, latency, cost, and failures
 - [ ] Deployment hardening, secret management, and upload limits

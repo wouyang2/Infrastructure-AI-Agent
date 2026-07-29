@@ -2,11 +2,14 @@ from __future__ import annotations
 
 import base64
 from io import BytesIO
+from uuid import uuid4
 
 from fastapi.testclient import TestClient
 from PIL import Image
 
+import api as api_module
 from api import app
+from runtime.rate_limiter import RateLimitResult
 
 
 client = TestClient(app)
@@ -28,6 +31,7 @@ def test_index_serves_demo_ui() -> None:
     assert "Formal Report Preview" in response.text
     assert "Export Report" in response.text
     assert "Case Review" in response.text
+    assert "Live Progress" in response.text
     assert "LLM polished" in response.text
     assert "Drop inspection media" in response.text
     assert 'id="media-upload"' in response.text
@@ -92,6 +96,21 @@ def test_upload_image_rejects_unsupported_extension() -> None:
     assert "Only JPG, PNG, and WEBP" in response.json()["detail"]
 
 
+def test_upload_image_rejects_oversized_payload(monkeypatch) -> None:
+    monkeypatch.setenv("MAX_IMAGE_UPLOAD_BYTES", "3")
+
+    response = client.post(
+        "/uploads/images",
+        json={
+            "filename": "bridge-upload.png",
+            "content_base64": base64.b64encode(b"abcd").decode(),
+        },
+    )
+
+    assert response.status_code == 413
+    assert "too large" in response.json()["detail"]
+
+
 def test_upload_video_returns_local_artifact_path() -> None:
     response = client.post(
         "/uploads/videos",
@@ -121,10 +140,27 @@ def test_upload_video_rejects_unsupported_extension() -> None:
     assert "Only MP4, MOV, AVI, and MKV" in response.json()["detail"]
 
 
+def test_upload_video_rejects_oversized_payload(monkeypatch) -> None:
+    monkeypatch.setenv("MAX_VIDEO_UPLOAD_BYTES", "3")
+
+    response = client.post(
+        "/uploads/videos",
+        json={
+            "filename": "bridge-walkthrough.mp4",
+            "content_base64": base64.b64encode(b"abcd").decode(),
+        },
+    )
+
+    assert response.status_code == 413
+    assert "too large" in response.json()["detail"]
+
+
 def test_create_inspection_returns_report() -> None:
+    run_id = f"api_create_{uuid4().hex}"
     response = client.post(
         "/inspections",
         json={
+            "client_run_id": run_id,
             "asset_id": "API-100",
             "asset_type": "bridge",
             "asset_name": "API Demo Bridge",
@@ -136,24 +172,28 @@ def test_create_inspection_returns_report() -> None:
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 202
     payload = response.json()
-    assert payload["run_id"]
-    assert payload["report"]["case"]["case_id"] == "CASE-API-100"
-    assert payload["report"]["severity"]["repair_required"] is True
-    assert (
-        payload["report"]["maintenance_plan"]["recommended_action"]
-        == "partial-depth concrete patch"
-    )
-    assert payload["report"]["schedule"] is not None
-    assert "# Infrastructure Inspection Report" in payload["rendered_report"]
+    assert payload["run_id"] == run_id
+    assert payload["status"] == "queued"
+    assert payload["progress_url"] == f"/cases/{run_id}/progress"
+    assert payload["case_url"] == f"/cases/{run_id}"
+    assert payload["report"] is None
 
-    detail_response = client.get(f"/cases/{payload['run_id']}")
+    detail_response = client.get(f"/cases/{run_id}")
     assert detail_response.status_code == 200
     detail = detail_response.json()
     assert detail["status"] == "completed"
     assert detail["case_id"] == "CASE-API-100"
-    assert detail["severity"] == payload["report"]["severity"]["severity"]
+    assert detail["report"]["case"]["case_id"] == "CASE-API-100"
+    assert detail["report"]["severity"]["repair_required"] is True
+    assert (
+        detail["report"]["maintenance_plan"]["recommended_action"]
+        == "partial-depth concrete patch"
+    )
+    assert detail["report"]["schedule"] is not None
+    assert "# Infrastructure Inspection Report" in detail["rendered_report"]
+    assert detail["severity"] == detail["report"]["severity"]["severity"]
     assert detail["report"]["case"]["case_id"] == "CASE-API-100"
 
 
@@ -171,7 +211,7 @@ def test_cases_endpoint_lists_persisted_inspections() -> None:
             "scheduling_mode": "deterministic",
         },
     )
-    assert inspection_response.status_code == 200
+    assert inspection_response.status_code == 202
     run_id = inspection_response.json()["run_id"]
 
     response = client.get("/cases?limit=10")
@@ -179,6 +219,68 @@ def test_cases_endpoint_lists_persisted_inspections() -> None:
     assert response.status_code == 200
     payload = response.json()
     assert any(item["run_id"] == run_id for item in payload)
+
+
+def test_case_progress_endpoint_returns_workflow_progress() -> None:
+    run_id = f"api_progress_{uuid4().hex}"
+    inspection_response = client.post(
+        "/inspections",
+        json={
+            "client_run_id": run_id,
+            "asset_id": "API-PROGRESS-100",
+            "asset_type": "bridge",
+            "asset_name": "API Progress Bridge",
+            "location": "East approach",
+            "criticality": "high",
+            "notes": "Inspection found spalling with loose concrete.",
+            "embedding_backend": "fake",
+            "scheduling_mode": "deterministic",
+        },
+    )
+    assert inspection_response.status_code == 202
+
+    response = client.get(f"/cases/{run_id}/progress")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "completed"
+    assert payload["current_stage"] == "completed"
+    assert payload["percent"] == 100
+    assert "queued" in [event["stage"] for event in payload["events"]]
+    assert "report" in [event["stage"] for event in payload["events"]]
+
+
+def test_create_inspection_returns_429_when_rate_limited(monkeypatch) -> None:
+    class DenyLimiter:
+        def check(self, key, *, limit, window_seconds):
+            return RateLimitResult(
+                allowed=False,
+                key=key,
+                limit=1,
+                count=2,
+                remaining=0,
+                reset_seconds=12,
+            )
+
+    monkeypatch.setattr(api_module, "rate_limiter", DenyLimiter())
+
+    response = client.post(
+        "/inspections",
+        json={
+            "asset_id": "API-LIMIT-100",
+            "asset_type": "bridge",
+            "asset_name": "API Limited Bridge",
+            "location": "East approach",
+            "criticality": "high",
+            "notes": "Inspection found spalling with loose concrete.",
+            "embedding_backend": "fake",
+            "scheduling_mode": "deterministic",
+        },
+    )
+
+    assert response.status_code == 429
+    assert response.headers["retry-after"] == "12"
+    assert "rate limit exceeded" in response.json()["detail"].lower()
 
 
 def test_review_endpoint_updates_completed_case() -> None:
@@ -195,7 +297,7 @@ def test_review_endpoint_updates_completed_case() -> None:
             "scheduling_mode": "deterministic",
         },
     )
-    assert inspection_response.status_code == 200
+    assert inspection_response.status_code == 202
     run_id = inspection_response.json()["run_id"]
 
     response = client.patch(
@@ -244,9 +346,19 @@ def test_export_report_pdf_returns_pdf() -> None:
             "scheduling_mode": "deterministic",
         },
     )
-    assert inspection_response.status_code == 200
+    assert inspection_response.status_code == 202
+    run_id = inspection_response.json()["run_id"]
+    detail_response = client.get(f"/cases/{run_id}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
 
-    response = client.post("/reports/pdf", json=inspection_response.json())
+    response = client.post(
+        "/reports/pdf",
+        json={
+            "report": detail["report"],
+            "rendered_report": detail["rendered_report"],
+        },
+    )
 
     assert response.status_code == 200
     assert response.headers["content-type"] == "application/pdf"
@@ -269,11 +381,14 @@ def test_create_inspection_monitoring_only_skips_schedule() -> None:
         },
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["report"]["severity"]["repair_required"] is False
-    assert payload["report"]["schedule"] is None
-    assert "No repair window required" in payload["rendered_report"]
+    assert response.status_code == 202
+    run_id = response.json()["run_id"]
+    detail_response = client.get(f"/cases/{run_id}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["report"]["severity"]["repair_required"] is False
+    assert detail["report"]["schedule"] is None
+    assert "No repair window required" in detail["rendered_report"]
 
 
 def test_create_inspection_accepts_live_scheduling_context_fields() -> None:
@@ -295,10 +410,13 @@ def test_create_inspection_accepts_live_scheduling_context_fields() -> None:
         },
     )
 
-    assert response.status_code == 200
-    payload = response.json()
-    assert payload["report"]["case"]["asset"]["metadata"] == {
+    assert response.status_code == 202
+    run_id = response.json()["run_id"]
+    detail_response = client.get(f"/cases/{run_id}")
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["report"]["case"]["asset"]["metadata"] == {
         "latitude": 40.7505,
         "longitude": -73.9934,
     }
-    assert payload["report"]["schedule"] is not None
+    assert detail["report"]["schedule"] is not None
