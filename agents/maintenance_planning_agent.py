@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Literal
 
 from agents.helpers.maintenance_plan_generator import LLMMaintenancePlanGenerator
+from agents.helpers.maintenance_precedent_tool import MaintenancePrecedentTool
 from agents.helpers.observation_selection import select_primary_observation
 from models import (
     HistoricalPrecedent,
@@ -43,20 +44,27 @@ class MaintenancePlanningAgent:
         inspection_case: InspectionCase,
         observations: list[Observation],
         severity: SeverityAssessment,
+        historical_precedents: list[HistoricalPrecedent] | None = None,
+        precedent_documents: list[dict] | None = None,
     ) -> MaintenancePlan:
         if not severity.repair_required:
             return self._create_monitoring_plan()
 
         primary = select_primary_observation(observations)
-        precedents = self._retrieve_historical_precedents(
-            inspection_case,
-            primary,
-            severity,
-        )
+        if historical_precedents is None or precedent_documents is None:
+            precedent_payload = MaintenancePrecedentTool(self.retriever).invoke(
+                inspection_case=inspection_case,
+                observations=observations,
+                severity=severity,
+            )
+            historical_precedents = precedent_payload["historical_precedents"]
+            precedent_documents = precedent_payload["precedent_documents"]
+
         deterministic_plan = self._create_repair_plan(
             inspection_case,
             primary,
-            precedents,
+            historical_precedents,
+            precedent_documents,
         )
 
         if self.planning_mode == "deterministic":
@@ -70,7 +78,7 @@ class MaintenancePlanningAgent:
             inspection_case,
             observations,
             severity,
-            precedents,
+            historical_precedents,
             deterministic_plan,
         )
 
@@ -97,8 +105,9 @@ class MaintenancePlanningAgent:
         inspection_case: InspectionCase,
         primary: Observation,
         precedents: list[HistoricalPrecedent],
+        precedent_documents: list[dict] | None = None,
     ) -> MaintenancePlan:
-        precedent_documents = self._precedent_documents(precedents)
+        precedent_documents = precedent_documents or self._precedent_documents(precedents)
         repair_method = self._choose_repair_method(primary.defect_type, precedents)
         tasks = self._build_tasks(primary.defect_type, repair_method)
         estimated_duration = self._estimate_duration(tasks, precedents)

@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AWS Application Glossary</title>
+    <style>
+      :root { color-scheme: light; --ink:#17211d; --muted:#607068; --line:#d8dfda; --paper:#fbfcfa; --soft:#eef3f0; --accent:#176b62; }
+      body { margin:0; background:var(--paper); color:var(--ink); font-family: Avenir Next, Inter, system-ui, sans-serif; line-height:1.55; }
+      main { max-width: 900px; margin: 0 auto; padding: 44px 28px 64px; }
+      h1 { margin:0 0 8px; font-size: 30px; letter-spacing:0; }
+      p.lede { margin:0 0 28px; color:var(--muted); }
+      dl { display:grid; gap:14px; }
+      div.term { padding:16px 18px; border:1px solid var(--line); border-radius:8px; background:white; }
+      dt { font-weight:800; color:var(--accent); }
+      dd { margin:4px 0 0; color:#2a342f; }
+      code { padding:2px 5px; border-radius:4px; background:var(--soft); }
+      @media print { body{background:white;} main{padding:20px;} div.term{break-inside:avoid;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AWS Application Glossary</h1>
+      <p class="lede">A compact map of AWS terms as they apply to the Infrastructure AI Agent.</p>
+      <dl>
+        <div class="term"><dt>AWS</dt><dd>A cloud platform: you rent managed infrastructure such as storage, compute, databases, networking, identity, and monitoring instead of owning all of it yourself.</dd></div>
+        <div class="term"><dt>Region</dt><dd>A geographic AWS area, such as <code>us-east-1</code>, where your resources live. Pick one close to users and compatible with the services you need.</dd></div>
+        <div class="term"><dt>Availability Zone</dt><dd>An isolated datacenter group inside a Region. Production apps use multiple zones so one datacenter issue does not take the app down.</dd></div>
+        <div class="term"><dt>S3</dt><dd>Object storage for files: inspection images, videos, PDFs, logs, exported datasets, and model artifacts.</dd></div>
+        <div class="term"><dt>Bucket</dt><dd>A top-level S3 container, roughly like a storage namespace. Example: <code>infra-agent-media-prod</code>.</dd></div>
+        <div class="term"><dt>Object Key</dt><dd>The path-like name of a file in S3. Example: <code>inspections/run_123/original/bridge.png</code>.</dd></div>
+        <div class="term"><dt>Presigned URL</dt><dd>A temporary URL that lets a browser upload or download a private S3 object without making the bucket public.</dd></div>
+        <div class="term"><dt>IAM</dt><dd>AWS Identity and Access Management. It controls who or what can access which AWS resources.</dd></div>
+        <div class="term"><dt>IAM Policy</dt><dd>A JSON permission document. Example: allow this app to put objects only into <code>s3://infra-agent-media-prod/uploads/*</code>.</dd></div>
+        <div class="term"><dt>IAM Role</dt><dd>An identity an application or AWS service can assume temporarily. Prefer roles over long-lived access keys in production.</dd></div>
+        <div class="term"><dt>EC2</dt><dd>Virtual machines. Useful when you need server control, custom workers, GPU boxes, or straightforward VM deployment.</dd></div>
+        <div class="term"><dt>ECS/Fargate</dt><dd>Run Docker containers without managing servers directly. A natural next step for your FastAPI/RQ worker containers.</dd></div>
+        <div class="term"><dt>RDS</dt><dd>Managed relational databases such as PostgreSQL. For this project, it would replace self-managed Postgres in Docker.</dd></div>
+        <div class="term"><dt>CloudWatch</dt><dd>AWS logging and monitoring. Useful for API logs, worker errors, latency, alarms, and operational dashboards.</dd></div>
+      </dl>
+    </main>
+  </body>
+</html>

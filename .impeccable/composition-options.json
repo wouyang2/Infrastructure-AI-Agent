@@ -1,0 +1,45 @@
+{
+  "title": "Choose the workspace composition",
+  "question": "All three use the Corridor Command Map system. Choose the layout to carry into the build.",
+  "options": [
+    {
+      "id": "composition-a",
+      "label": "Case Ledger + Workspace",
+      "kicker": "RECOMMENDED",
+      "lineage": "persistent run ledger, route progress, focused result tabs",
+      "thesis": "Keep every inspection visible while one case receives a calm, spacious technical workspace.",
+      "palette": ["#E8ECE8", "#18231F", "#176B62", "#E1B13D"],
+      "materials": ["route-map enamel", "inspection paper", "thin technical rules"],
+      "viewport": "A dark run ledger anchors the left; the selected case owns a route header, result tabs, and a broad evidence workspace.",
+      "risk": "The new-inspection form must open in a drawer or modal because intake is not permanently visible.",
+      "hero": ".impeccable/mocks/corridor-a.png"
+    },
+    {
+      "id": "composition-b",
+      "label": "Intake + Evidence + Decision",
+      "kicker": "SIMULTANEOUS WORK",
+      "lineage": "top run line, permanent intake, three-column operations",
+      "thesis": "Let operators create a new inspection while reading evidence and recommendations from the selected run.",
+      "palette": ["#E8ECE8", "#18231F", "#176B62", "#E1B13D"],
+      "materials": ["route-map enamel", "inspection paper", "thin technical rules"],
+      "viewport": "A run line spans the top while intake, selected evidence, and decision output remain visible together.",
+      "risk": "Permanent intake competes with the results and compresses long reports.",
+      "hero": ".impeccable/mocks/corridor-b.png"
+    },
+    {
+      "id": "composition-c",
+      "label": "Dense Operations Matrix",
+      "kicker": "MAXIMUM CONTROL",
+      "lineage": "run table, workflow route, case inspector, intake drawer",
+      "thesis": "Expose queue health, detailed evidence, worker state, review status, and intake in one desktop view.",
+      "palette": ["#E8ECE8", "#18231F", "#176B62", "#E1B13D"],
+      "materials": ["route-map enamel", "inspection paper", "thin technical rules"],
+      "viewport": "A run table, central case workspace, inspector pane, and slide-over intake form share one dense operations screen.",
+      "risk": "The four-column layout is powerful on wide displays but visually crowded at ordinary laptop widths.",
+      "hero": ".impeccable/mocks/corridor-c.png"
+    }
+  ],
+  "reroll": false,
+  "canon": false,
+  "steer": true
+}

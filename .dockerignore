@@ -6,8 +6,12 @@ __pycache__
 .mypy_cache
 .ruff_cache
 .env
+config/inspection_crash_settings.json
 artifacts
 reports
+data/bridge_image/*
+!data/bridge_image/*.csv
+!data/bridge_image/*.json
 *.pyc
 *.pyo
 *.pyd

@@ -164,7 +164,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--video-frame-interval",
         type=float,
-        default=5.0,
+        default=4.6,
         help="Seconds between sampled video frames when using OpenCV sampling.",
     )
     parser.add_argument(
@@ -260,6 +260,23 @@ def build_parser() -> argparse.ArgumentParser:
         default="fallback",
         help="How LLM planning behaves after retries are exhausted.",
     )
+    parser.add_argument(
+        "--checkpoint-backend",
+        choices=["memory", "sqlite", "none"],
+        default=None,
+        help=(
+            "LangGraph checkpoint backend. Defaults to "
+            "LANGGRAPH_CHECKPOINT_BACKEND or memory."
+        ),
+    )
+    parser.add_argument(
+        "--checkpoint-sqlite-path",
+        default=None,
+        help=(
+            "SQLite checkpoint database path when using --checkpoint-backend sqlite. "
+            "Defaults to LANGGRAPH_CHECKPOINT_SQLITE_PATH or artifacts/langgraph_checkpoints.sqlite."
+        ),
+    )
     parser.add_argument("--reason", default="routine")
     return parser
 
@@ -318,6 +335,8 @@ def run_pipeline(args: argparse.Namespace) -> InspectionReport:
         chroma_persist_dir=args.chroma_persist_dir,
         rebuild_rag_index=args.rebuild_rag_index,
         knowledge_corpus=args.knowledge_corpus,
+        checkpoint_backend=args.checkpoint_backend,
+        checkpoint_sqlite_path=args.checkpoint_sqlite_path,
     )
 
 

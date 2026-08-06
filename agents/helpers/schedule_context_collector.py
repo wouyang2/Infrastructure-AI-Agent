@@ -16,15 +16,7 @@ from models import (
     WeatherContext,
 )
 from runtime.cache_store import CacheStore, build_cache_store
-
-
-def _load_dotenv_if_available() -> None:
-    try:
-        from dotenv import load_dotenv
-
-        load_dotenv()
-    except ImportError:
-        pass
+from runtime.env_loader import load_dotenv_if_available as _load_dotenv_if_available
 
 
 def _asset_coordinates(inspection_case: InspectionCase) -> tuple[float, float] | None:

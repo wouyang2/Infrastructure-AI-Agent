@@ -1,4 +1,24 @@
 services:
+  postgres:
+    image: postgres:16-alpine
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-infra_agent}
+      POSTGRES_USER: ${POSTGRES_USER:-infra_agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-infra_agent}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-infra_agent} -d ${POSTGRES_DB:-infra_agent}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
   redis:
     image: redis:7-alpine
     ports:
@@ -7,6 +27,17 @@ services:
       - redis-data:/data
     command: ["redis-server", "--appendonly", "yes"]
 
+  migrate:
+    build: .
+    command: ["python3", "-m", "storage.migrate", "upgrade"]
+    env_file:
+      - .env
+    environment:
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://infra_agent:infra_agent@postgres:5432/infra_agent}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   api:
     build: .
     ports:
@@ -14,7 +45,8 @@ services:
     env_file:
       - .env
     environment:
-      DATABASE_URL: sqlite:///artifacts/infra_agent.db
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://infra_agent:infra_agent@postgres:5432/infra_agent}
+      AUTO_CREATE_DATABASE_TABLES: ${AUTO_CREATE_DATABASE_TABLES:-false}
       REDIS_URL: redis://redis:6379/0
       PROGRESS_STORE_BACKEND: redis
       CACHE_STORE_BACKEND: redis
@@ -23,19 +55,29 @@ services:
       RQ_INSPECTION_QUEUE: inspection-jobs
       RQ_INSPECTION_JOB_TIMEOUT_SECONDS: 900
       RQ_INSPECTION_RETRY_MAX_ATTEMPTS: 3
-      RQ_INSPECTION_RETRY_INTERVALS_SECONDS: 10,30,60
+      RQ_INSPECTION_RETRY_INTERVALS_SECONDS: ${RQ_INSPECTION_RETRY_INTERVALS_SECONDS:-10,30,60}
+      LANGGRAPH_CHECKPOINT_BACKEND: ${LANGGRAPH_CHECKPOINT_BACKEND:-memory}
+      LANGGRAPH_CHECKPOINT_SQLITE_PATH: ${LANGGRAPH_CHECKPOINT_SQLITE_PATH:-artifacts/langgraph_checkpoints.sqlite}
+      OPENAI_REQUEST_TIMEOUT_SECONDS: ${OPENAI_REQUEST_TIMEOUT_SECONDS:-30}
+      INSPECTION_CRASH_MODE: ${INSPECTION_CRASH_MODE:-disabled}
     volumes:
       - infra-artifacts:/app/artifacts
     depends_on:
-      - redis
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
 
   worker:
     build: .
-    command: ["rq", "worker", "inspection-jobs", "--url", "redis://redis:6379/0"]
+    command: ["rq", "worker", "--with-scheduler", "inspection-jobs", "--url", "redis://redis:6379/0"]
     env_file:
       - .env
     environment:
-      DATABASE_URL: sqlite:///artifacts/infra_agent.db
+      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://infra_agent:infra_agent@postgres:5432/infra_agent}
+      AUTO_CREATE_DATABASE_TABLES: ${AUTO_CREATE_DATABASE_TABLES:-false}
       REDIS_URL: redis://redis:6379/0
       PROGRESS_STORE_BACKEND: redis
       CACHE_STORE_BACKEND: redis
@@ -44,12 +86,46 @@ services:
       RQ_INSPECTION_QUEUE: inspection-jobs
       RQ_INSPECTION_JOB_TIMEOUT_SECONDS: 900
       RQ_INSPECTION_RETRY_MAX_ATTEMPTS: 3
-      RQ_INSPECTION_RETRY_INTERVALS_SECONDS: 10,30,60
+      RQ_INSPECTION_RETRY_INTERVALS_SECONDS: ${RQ_INSPECTION_RETRY_INTERVALS_SECONDS:-10,30,60}
+      LANGGRAPH_CHECKPOINT_BACKEND: ${LANGGRAPH_CHECKPOINT_BACKEND:-memory}
+      LANGGRAPH_CHECKPOINT_SQLITE_PATH: ${LANGGRAPH_CHECKPOINT_SQLITE_PATH:-artifacts/langgraph_checkpoints.sqlite}
+      OPENAI_REQUEST_TIMEOUT_SECONDS: ${OPENAI_REQUEST_TIMEOUT_SECONDS:-30}
+      INSPECTION_CRASH_MODE: ${INSPECTION_CRASH_MODE:-disabled}
+      INSPECTION_SIMULATE_CRASH_AFTER_STAGE: ${INSPECTION_SIMULATE_CRASH_AFTER_STAGE:-}
+      INSPECTION_SIMULATE_CRASH_ON_STATUS: ${INSPECTION_SIMULATE_CRASH_ON_STATUS:-running}
+      INSPECTION_SIMULATE_HARD_CRASH_AFTER_STAGE: ${INSPECTION_SIMULATE_HARD_CRASH_AFTER_STAGE:-}
+      INSPECTION_SIMULATE_HARD_CRASH_ON_STATUS: ${INSPECTION_SIMULATE_HARD_CRASH_ON_STATUS:-running}
+      INSPECTION_HARD_CRASH_EXIT_CODE: ${INSPECTION_HARD_CRASH_EXIT_CODE:-70}
+      INSPECTION_CRASH_MARKER_DIR: ${INSPECTION_CRASH_MARKER_DIR:-artifacts/crash_markers}
     volumes:
       - infra-artifacts:/app/artifacts
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+
+  rq-dashboard:
+    build: .
+    command:
+      [
+        "rq-dashboard",
+        "--bind",
+        "0.0.0.0",
+        "--port",
+        "9181",
+        "--disable-delete",
+      ]
+    ports:
+      - "9181:9181"
+    environment:
+      RQ_DASHBOARD_REDIS_URL: redis://redis:6379/0
     depends_on:
       - redis
 
 volumes:
   redis-data:
   infra-artifacts:
+  postgres-data:

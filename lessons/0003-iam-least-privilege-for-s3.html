@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lesson 0003: IAM Least Privilege For S3</title>
+    <style>
+      :root { color-scheme: light; --paper:#f7f9f7; --ink:#17211d; --muted:#5d6d65; --line:#d6ddd8; --soft:#edf3ef; --accent:#176b62; --warn:#9c6818; }
+      body { margin:0; background:var(--paper); color:var(--ink); font-family:Avenir Next, Inter, system-ui, sans-serif; line-height:1.55; }
+      main { max-width:930px; margin:0 auto; padding:44px 28px 72px; }
+      .eyebrow { margin:0 0 6px; color:var(--accent); font-size:12px; font-weight:800; text-transform:uppercase; }
+      h1 { margin:0; font-size:34px; line-height:1.1; letter-spacing:0; }
+      .lede { max-width:76ch; color:var(--muted); font-size:16px; }
+      section { margin-top:28px; }
+      h2 { margin:0 0 12px; font-size:20px; }
+      h3 { margin:0 0 6px; font-size:15px; }
+      p { margin:0 0 12px; }
+      a { color:var(--accent); }
+      .grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+      .card, .exercise, .answer { padding:16px 18px; border:1px solid var(--line); border-radius:8px; background:white; }
+      .card strong { color:var(--accent); }
+      code, pre { background:var(--soft); border-radius:5px; }
+      code { padding:2px 5px; }
+      pre { padding:14px; overflow:auto; }
+      details { margin-top:10px; }
+      summary { cursor:pointer; font-weight:800; color:var(--accent); }
+      .answer { margin-top:10px; background:#fbf7ee; border-color:#ead7b9; }
+      .sources { font-size:13px; color:var(--muted); }
+      @media (max-width:800px) { .grid { grid-template-columns:1fr; } main { padding:28px 18px 56px; } h1 { font-size:28px; } }
+      @media print { body{background:white;} main{padding:20px;} .card,.exercise,.answer{break-inside:avoid;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Lesson 0003 · IAM for S3</p>
+        <h1>IAM answers one question: what is this app allowed to do?</h1>
+        <p class="lede">Once your app can upload to S3, the dangerous part is permission. IAM lets you give the app only the actions and resources it actually needs.</p>
+      </header>
+
+      <section>
+        <h2>IAM in one minute</h2>
+        <div class="grid">
+          <div class="card"><h3>Identity</h3><p>Who or what is calling AWS. In production this should usually be an <strong>IAM role</strong> attached to the running service.</p></div>
+          <div class="card"><h3>Policy</h3><p>A JSON permission document. It says which <strong>actions</strong> are allowed on which <strong>resources</strong>.</p></div>
+          <div class="card"><h3>Action</h3><p>The operation. For this project: <code>s3:PutObject</code>, <code>s3:GetObject</code>, and maybe <code>s3:DeleteObject</code>.</p></div>
+          <div class="card"><h3>Resource</h3><p>The specific AWS thing. For this project: one bucket prefix, not every bucket in the account.</p></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Bad permission vs better permission</h2>
+        <p><strong>Too broad:</strong></p>
+        <pre><code>Action: "s3:*"
+Resource: "*"</code></pre>
+        <p>This says: the app can do anything to any S3 resource. That is far more power than an inspection API needs.</p>
+        <p><strong>Better:</strong></p>
+        <pre><code>Action:
+  - "s3:PutObject"
+  - "s3:GetObject"
+Resource:
+  - "arn:aws:s3:::infra-agent-media-dev/inspection-media/*"</code></pre>
+        <p>This says: the app can upload and read only media objects under the app’s bucket prefix.</p>
+      </section>
+
+      <section>
+        <h2>How this maps to your code</h2>
+        <p>The new S3 backend will use environment variables like:</p>
+        <pre><code>MEDIA_STORAGE_BACKEND=s3
+AWS_S3_MEDIA_BUCKET=infra-agent-media-dev
+AWS_REGION=us-east-1
+AWS_S3_MEDIA_PREFIX=inspection-media</code></pre>
+        <p>Those settings do not grant permission by themselves. They only tell the app where to store media. IAM decides whether AWS accepts the request.</p>
+      </section>
+
+      <section class="exercise">
+        <h2>Retrieval practice</h2>
+        <p><strong>Question:</strong> Why is <code>s3:PutObject</code> on one bucket prefix safer than <code>s3:*</code> on <code>*</code>?</p>
+        <details>
+          <summary>Show answer</summary>
+          <div class="answer">
+            <p>Because the app can only upload objects where it is supposed to. If the app is compromised or buggy, it cannot list, delete, or modify unrelated S3 buckets and objects across the account.</p>
+          </div>
+        </details>
+      </section>
+
+      <section>
+        <h2>Implementation note</h2>
+        <p>Local development can use AWS CLI credentials or environment variables. Production should use IAM roles attached to the service running the API/worker. The role gets the policy, not the source code.</p>
+        <p>Reference: <a href="../reference/s3-iam-policy-sketch.html">S3 IAM Policy Sketch</a>.</p>
+      </section>
+
+      <section class="sources">
+        <h2>Primary sources</h2>
+        <ul>
+          <li><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/introduction.html">AWS: What is IAM?</a></li>
+          <li><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started.html">AWS: Getting started with IAM</a></li>
+          <li><a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html">AWS: S3 presigned URLs</a></li>
+        </ul>
+        <p>Ask the agent follow-up questions on anything unclear. Good next question: “Where would I create this IAM policy in AWS Console?”</p>
+      </section>
+    </main>
+  </body>
+</html>

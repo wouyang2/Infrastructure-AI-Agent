@@ -4,6 +4,7 @@ import os
 from datetime import datetime
 from typing import Any, Literal
 
+from agents.helpers.llm_runtime import llm_request_timeout_seconds
 from models import (
     InspectionCase,
     MaintenancePlan,
@@ -137,7 +138,12 @@ class LLMScheduleGenerator:
             ) from exc
 
         selected_model = model or os.getenv("OPENAI_SCHEDULING_MODEL", "gpt-4.1-mini")
-        return ChatOpenAI(model=selected_model, temperature=0).with_structured_output(
+        return ChatOpenAI(
+            model=selected_model,
+            temperature=0,
+            timeout=llm_request_timeout_seconds(env_name="OPENAI_SCHEDULING_TIMEOUT_SECONDS"),
+            max_retries=0,
+        ).with_structured_output(
             SCHEDULE_SELECTION_SCHEMA,
             method="json_schema",
             strict=True,

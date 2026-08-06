@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lesson 0002: S3 Buckets, Keys, And Presigned URLs</title>
+    <style>
+      :root { color-scheme: light; --paper:#f7f9f7; --ink:#17211d; --muted:#5d6d65; --line:#d6ddd8; --soft:#edf3ef; --accent:#176b62; --gold:#9c6818; }
+      body { margin:0; background:var(--paper); color:var(--ink); font-family:Avenir Next, Inter, system-ui, sans-serif; line-height:1.55; }
+      main { max-width:930px; margin:0 auto; padding:44px 28px 72px; }
+      .eyebrow { margin:0 0 6px; color:var(--accent); font-size:12px; font-weight:800; text-transform:uppercase; }
+      h1 { margin:0; font-size:34px; line-height:1.1; letter-spacing:0; }
+      .lede { max-width:76ch; color:var(--muted); font-size:16px; }
+      section { margin-top:28px; }
+      h2 { margin:0 0 12px; font-size:20px; }
+      h3 { margin:0 0 6px; font-size:15px; }
+      p { margin:0 0 12px; }
+      a { color:var(--accent); }
+      .grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:14px; }
+      .card, .exercise, .answer, .flow { padding:16px 18px; border:1px solid var(--line); border-radius:8px; background:white; }
+      .card strong { color:var(--accent); }
+      code, pre { background:var(--soft); border-radius:5px; }
+      code { padding:2px 5px; }
+      pre { padding:14px; overflow:auto; }
+      .flow { display:grid; gap:10px; }
+      .step { padding:12px 14px; border-left:4px solid var(--accent); background:#fbfdfb; }
+      details { margin-top:10px; }
+      summary { cursor:pointer; font-weight:800; color:var(--accent); }
+      .answer { margin-top:10px; background:#fbf7ee; border-color:#ead7b9; }
+      .sources { font-size:13px; color:var(--muted); }
+      @media (max-width:800px) { .grid { grid-template-columns:1fr; } main { padding:28px 18px 56px; } h1 { font-size:28px; } }
+      @media print { body{background:white;} main{padding:20px;} .card,.exercise,.answer,.flow{break-inside:avoid;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Lesson 0002 · S3 for inspection media</p>
+        <h1>S3 stores objects. Your database stores what those objects mean.</h1>
+        <p class="lede">In your app, an uploaded bridge image is not just a file. It is evidence attached to an inspection run. S3 should hold the bytes; PostgreSQL should hold the identity, ownership, checksum, and workflow meaning.</p>
+      </header>
+
+      <section>
+        <h2>The three S3 words you need first</h2>
+        <div class="grid">
+          <div class="card"><h3>Bucket</h3><p>A top-level container for objects. Example: <code>infra-agent-media-dev</code>. Treat it like the storage boundary for an environment.</p></div>
+          <div class="card"><h3>Object</h3><p>The stored file plus its metadata. Example: a JPEG image, an MP4 video, a generated PDF, or an annotated image.</p></div>
+          <div class="card"><h3>Key</h3><p>The object’s path-like name inside the bucket. Example: <code>inspections/run_123/original/bridge.png</code>.</p></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Map this to your current upload</h2>
+        <p>Today your app saves an uploaded image like this:</p>
+        <pre><code>artifacts/uploads/bridge-spalling_a04bc7ca35.png</code></pre>
+        <p>In S3, the production version would look more like this:</p>
+        <pre><code>bucket = infra-agent-media-dev
+key    = inspections/run_1785/original/media_abc123-bridge-spalling.png
+url    = s3://infra-agent-media-dev/inspections/run_1785/original/media_abc123-bridge-spalling.png</code></pre>
+        <p>The SQL row would keep the stable application facts:</p>
+        <pre><code>media_id = media_abc123
+run_id = run_1785
+storage_backend = s3
+storage_key = inspections/run_1785/original/media_abc123-bridge-spalling.png
+checksum_sha256 = ...
+scan_status = clean</code></pre>
+      </section>
+
+      <section>
+        <h2>Why not make the S3 bucket public?</h2>
+        <p>Inspection media can be sensitive. A public bucket is the wrong default. Instead, keep the bucket private and let the API create <strong>presigned URLs</strong>.</p>
+        <div class="flow">
+          <div class="step"><strong>Upload path:</strong> Browser asks FastAPI for permission to upload one object.</div>
+          <div class="step"><strong>FastAPI checks identity:</strong> Is this user allowed to upload evidence for this case?</div>
+          <div class="step"><strong>FastAPI creates presigned PUT URL:</strong> Temporary permission to upload exactly one object key.</div>
+          <div class="step"><strong>Browser uploads to S3:</strong> The large file does not need to pass through your API worker.</div>
+          <div class="step"><strong>FastAPI records metadata:</strong> SQL stores media ID, run ID, key, size, checksum, and scan status.</div>
+        </div>
+      </section>
+
+      <section class="exercise">
+        <h2>Retrieval practice</h2>
+        <p>Answer before opening the answer. This is the one pattern to remember.</p>
+        <p><strong>Question:</strong> Your app has this media row:</p>
+        <pre><code>media_id = media_9
+run_id = run_42
+storage_backend = s3
+storage_key = inspections/run_42/original/media_9-crack.png</code></pre>
+        <p>What is probably stored in S3, and what is stored in PostgreSQL?</p>
+        <details>
+          <summary>Show answer</summary>
+          <div class="answer">
+            <p><strong>S3 stores:</strong> the actual bytes of <code>media_9-crack.png</code>, addressed by the bucket plus object key.</p>
+            <p><strong>PostgreSQL stores:</strong> the media row: <code>media_id</code>, <code>run_id</code>, storage backend, storage key, checksum, size, MIME type, scan status, and case linkage.</p>
+          </div>
+        </details>
+      </section>
+
+      <section>
+        <h2>Implementation direction for this project</h2>
+        <p>Your current code already has the right stepping stone: <code>inspection_media</code>. The next implementation would be a storage abstraction:</p>
+        <pre><code>MediaStorage
+  LocalMediaStorage   -> artifacts/uploads
+  S3MediaStorage      -> AWS S3 bucket
+  MinioMediaStorage   -> local S3-compatible dev bucket</code></pre>
+        <p>That lets the Evidence Agent and UI ask for media by metadata instead of caring whether bytes live on disk or S3.</p>
+        <p>Reference: <a href="../reference/s3-media-storage-pattern.html">S3 Media Storage Pattern</a> and <a href="../reference/aws-application-glossary.html">AWS Application Glossary</a>.</p>
+      </section>
+
+      <section class="sources">
+        <h2>Primary sources</h2>
+        <ul>
+          <li><a href="https://aws.amazon.com/s3/">AWS: Amazon S3 overview</a></li>
+          <li><a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingObjects.html">AWS: Working with Amazon S3 objects</a></li>
+          <li><a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/using-presigned-url.html">AWS: Sharing objects with presigned URLs</a></li>
+        </ul>
+        <p>Ask the agent follow-up questions on anything unclear. Useful next questions: “What would the boto3 code look like?” or “How does IAM protect this bucket?”</p>
+      </section>
+    </main>
+  </body>
+</html>

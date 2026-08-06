@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>S3 IAM Policy Sketch</title>
+    <style>
+      :root { color-scheme: light; --ink:#17211d; --muted:#607068; --line:#d8dfda; --paper:#fbfcfa; --soft:#eef3f0; --accent:#176b62; }
+      body { margin:0; background:var(--paper); color:var(--ink); font-family:Avenir Next, Inter, system-ui, sans-serif; line-height:1.55; }
+      main { max-width:920px; margin:0 auto; padding:44px 28px 64px; }
+      h1 { margin:0 0 8px; font-size:30px; }
+      .lede { margin:0 0 28px; color:var(--muted); }
+      section { margin-top:24px; padding:18px; border:1px solid var(--line); border-radius:8px; background:white; }
+      h2 { margin:0 0 10px; font-size:18px; }
+      code, pre { background:var(--soft); border-radius:5px; }
+      code { padding:2px 5px; }
+      pre { padding:14px; overflow:auto; }
+      @media print { body{background:white;} main{padding:20px;} section{break-inside:avoid;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>S3 IAM Policy Sketch</h1>
+      <p class="lede">A starting point for least-privilege permissions for the Infrastructure AI Agent media bucket.</p>
+
+      <section>
+        <h2>What the app needs</h2>
+        <p>The API/worker needs permission to upload and read inspection media under one prefix. It should not have permission to manage all AWS resources or all buckets.</p>
+      </section>
+
+      <section>
+        <h2>Example shape</h2>
+        <pre><code>{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject"
+      ],
+      "Resource": "arn:aws:s3:::infra-agent-media-dev/inspection-media/*"
+    },
+    {
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": "arn:aws:s3:::infra-agent-media-dev",
+      "Condition": {
+        "StringLike": {
+          "s3:prefix": "inspection-media/*"
+        }
+      }
+    }
+  ]
+}</code></pre>
+      </section>
+
+      <section>
+        <h2>Production note</h2>
+        <p>For production, prefer an IAM role attached to the deployed service over hard-coded access keys. Local development can use AWS CLI credentials or environment variables temporarily.</p>
+      </section>
+    </main>
+  </body>
+</html>

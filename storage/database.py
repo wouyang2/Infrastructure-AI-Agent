@@ -15,7 +15,23 @@ DEFAULT_DATABASE_URL = "sqlite:///artifacts/infra_agent.db"
 
 
 def database_url() -> str:
-    return os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL)
+    return normalize_database_url(os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL))
+
+
+def normalize_database_url(url: str) -> str:
+    if url.startswith("postgres://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgres://")
+    if url.startswith("postgresql://"):
+        return "postgresql+psycopg://" + url.removeprefix("postgresql://")
+    return url
+
+
+def auto_create_database_tables() -> bool:
+    return os.getenv("AUTO_CREATE_DATABASE_TABLES", "true").lower() in {
+        "1",
+        "true",
+        "yes",
+    }
 
 
 def build_engine(url: str | None = None):
@@ -36,7 +52,8 @@ SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False
 
 
 def init_database() -> None:
-    Base.metadata.create_all(bind=engine)
+    if auto_create_database_tables():
+        Base.metadata.create_all(bind=engine)
     _apply_lightweight_sqlite_migrations()
 
 

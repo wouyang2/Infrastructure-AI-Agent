@@ -1,0 +1,72 @@
+{
+  "title": "Choose the inspection workspace",
+  "question": "This is a completely fresh direction set for the multi-run inspection console.",
+  "options": [
+    {
+      "id": "assigned-corridor-command-map",
+      "label": "Corridor Command Map",
+      "kicker": "FRESH LEAD",
+      "lineage": "transport control maps, work-zone boards, route diagrams",
+      "thesis": "Every inspection is a live point on an infrastructure corridor, with its evidence and decisions unfolding beside the network.",
+      "palette": ["#E8ECE8", "#18231F", "#176B62", "#E1B13D"],
+      "materials": ["route-map enamel", "work-zone markers", "inspection paper"],
+      "viewport": "A slim run command rail feeds a horizontal workflow route; the selected run opens below into dedicated evidence, RAG, plan, schedule, and report views.",
+      "risk": "The route metaphor must stay secondary to the actual data or it can become decorative.",
+      "sketch": ".impeccable/sketches/corridor-command-map.webp"
+    },
+    {
+      "id": "challenger-oscilloscope",
+      "label": "Inspection Signal Bench",
+      "kicker": "LIVE-SYSTEM ALTERNATE",
+      "lineage": "oscilloscopes, trigger controls, persistent signal traces",
+      "thesis": "The workflow is a live diagnostic signal that locks into a durable case once every stage has stabilized.",
+      "palette": ["#111714", "#DCE7DE", "#57D882", "#D79A36"],
+      "materials": ["dark instrument glass", "etched graticule", "phosphor trace"],
+      "viewport": "A compact run selector and stage trace occupy the top, while the chosen case fills a bright technical reading surface below.",
+      "risk": "Audience identification is moderate, but live progress and crash recovery become exceptionally clear.",
+      "case": "Best for runtime visibility; formal report review needs a deliberately calmer reading layer.",
+      "sketch": ".impeccable/sketches/inspection-signal-bench.webp",
+      "hero": "https://impeccable.style/worlds/cards/scientific-notation-oscilloscope-signal-bench-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/scientific-notation-oscilloscope-signal-bench.webp"
+    },
+    {
+      "id": "challenger-miura",
+      "label": "Deployable Case Sheet",
+      "kicker": "SPATIAL ALTERNATE",
+      "lineage": "Miura-fold engineering sheets and aerospace specifications",
+      "thesis": "A run begins as a compact record and unfolds into linked evidence, retrieval, planning, schedule, and report regions.",
+      "palette": ["#F5F5F1", "#171A18", "#92B8C8", "#C89C37"],
+      "materials": ["matte specification sheet", "scored folds", "gold packet face"],
+      "viewport": "The selected run unfolds across a diagonal technical grid while the run list remains compressed at the edge.",
+      "risk": "The folding structure can complicate responsive behavior and repeated operational scanning.",
+      "case": "Strong relationship mapping; weaker for frequent switching among many runs.",
+      "sketch": ".impeccable/sketches/deployable-case-sheet.webp",
+      "hero": "https://impeccable.style/worlds/cards/paper-folds-pleats-deployable-miura-orbit-sheet-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/paper-folds-pleats-deployable-miura-orbit-sheet.webp"
+    },
+    {
+      "id": "challenger-signal-grid",
+      "label": "Signal Grid",
+      "kicker": "SYSTEM-DIAGRAM ALTERNATE",
+      "lineage": "man-machine diagrams, traffic signals, wiring schematics",
+      "thesis": "Agents, tools, and decisions form one visible circuit whose active path lights as each inspection advances.",
+      "palette": ["#F4F3EE", "#121614", "#D83A31", "#D8A72D"],
+      "materials": ["enamel signal color", "wiring rules", "paper-white field"],
+      "viewport": "A strict agent-and-tool grid occupies the center, with the selected run's result views attached as numbered destinations.",
+      "risk": "The workflow topology is memorable but may overemphasize implementation details for ordinary operators.",
+      "case": "Excellent agent traceability; weaker focus on inspection evidence itself.",
+      "sketch": ".impeccable/sketches/signal-grid.webp",
+      "hero": "https://impeccable.style/worlds/cards/kraftwerk-man-machine-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/kraftwerk-man-machine.webp"
+    }
+  ],
+  "reroll": true,
+  "canon": true,
+  "canonCard": {
+    "label": "The category standard",
+    "thesis": "A conventional admin dashboard with sidebar navigation, metric cards, and stacked result panels.",
+    "viewport": "A familiar dashboard shell with intake form, run table, and detail cards.",
+    "sketch": ".impeccable/sketches/canon-dashboard-v2.webp"
+  },
+  "steer": true
+}

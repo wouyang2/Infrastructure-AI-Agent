@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import Any
 
-from agents.helpers.image_analyzer import HeuristicImageAnalyzer, ImageAnalyzer
+from agents.helpers.image_analyzer import HeuristicImageAnalyzer, ImageAnalyzer, ImageFinding
 from agents.helpers.video_sampler import MockVideoFrameSampler, VideoFrameSampler
 from models import Evidence, InspectionCase, MediaReference, Observation
 
@@ -23,28 +24,61 @@ class EvidenceAgent:
         self.image_analyzer = image_analyzer or HeuristicImageAnalyzer()
         self.video_frame_sampler = video_frame_sampler or MockVideoFrameSampler()
 
-    def extract_observations(self, inspection_case: InspectionCase) -> list[Observation]:
+    def extract_observations(
+        self,
+        inspection_case: InspectionCase,
+        visual_analysis_results: list[dict[str, Any]] | None = None,
+    ) -> list[Observation]:
         observations: list[Observation] = []
+        visual_results = visual_analysis_results or []
 
         for evidence in inspection_case.evidence:
             if evidence.modality == "image":
-                observations.extend(
-                    self._extract_image_observations(
-                        evidence,
-                        inspection_case,
-                        start_index=len(observations) + 1,
-                    )
+                image_results = self._visual_results_for_source(
+                    visual_results,
+                    source_id=evidence.source_id,
+                    source_modality="image",
                 )
+                if image_results:
+                    observations.extend(
+                        self._observations_from_visual_results(
+                            evidence,
+                            image_results,
+                            start_index=len(observations) + 1,
+                        )
+                    )
+                else:
+                    observations.extend(
+                        self._extract_image_observations(
+                            evidence,
+                            inspection_case,
+                            start_index=len(observations) + 1,
+                        )
+                    )
                 continue
 
             if evidence.modality == "video":
-                observations.extend(
-                    self._extract_video_observations(
-                        evidence,
-                        inspection_case,
-                        start_index=len(observations) + 1,
-                    )
+                video_results = self._visual_results_for_source(
+                    visual_results,
+                    source_id=evidence.source_id,
+                    source_modality="video_frame",
                 )
+                if video_results:
+                    observations.extend(
+                        self._observations_from_visual_results(
+                            evidence,
+                            video_results,
+                            start_index=len(observations) + 1,
+                        )
+                    )
+                else:
+                    observations.extend(
+                        self._extract_video_observations(
+                            evidence,
+                            inspection_case,
+                            start_index=len(observations) + 1,
+                        )
+                    )
                 continue
 
             observations.extend(
@@ -68,6 +102,78 @@ class EvidenceAgent:
                 confidence=0.4,
             )
         ]
+
+    def _visual_results_for_source(
+        self,
+        visual_analysis_results: list[dict[str, Any]],
+        *,
+        source_id: str,
+        source_modality: str,
+    ) -> list[dict[str, Any]]:
+        return [
+            result
+            for result in visual_analysis_results
+            if result.get("source_id") == source_id
+            and result.get("source_modality") == source_modality
+        ]
+
+    def _observations_from_visual_results(
+        self,
+        evidence: Evidence,
+        visual_results: list[dict[str, Any]],
+        *,
+        start_index: int,
+    ) -> list[Observation]:
+        observations: list[Observation] = []
+        for result in visual_results:
+            analyzed_image_path = str(result.get("analyzed_image_path") or "")
+            source_modality = result.get("source_modality", evidence.modality)
+            media_file_path = str(result.get("source_file_path") or evidence.file_path or "")
+            frame_timestamp_seconds = result.get("frame_timestamp_seconds")
+            for finding_payload in result.get("findings", []):
+                finding = self._finding_from_payload(finding_payload)
+                description = finding.description
+                if source_modality == "video_frame" and frame_timestamp_seconds is not None:
+                    description = (
+                        f"{description} "
+                        f"Sampled from video at {float(frame_timestamp_seconds):g}s."
+                    )
+                observations.append(
+                    Observation(
+                        observation_id=f"OBS-{start_index + len(observations):03}",
+                        source_id=evidence.source_id,
+                        source_modality=source_modality,
+                        defect_type=finding.defect_type,
+                        description=description,
+                        location_on_asset=finding.location_on_asset,
+                        media_reference=MediaReference(
+                            file_path=media_file_path,
+                            frame_timestamp_seconds=frame_timestamp_seconds,
+                            bounding_box=finding.bounding_box,
+                        ),
+                        measurement=self._finding_measurement(
+                            finding,
+                            analyzed_image_path or media_file_path,
+                        ),
+                        confidence=finding.confidence,
+                    )
+                )
+        return observations
+
+    def _finding_from_payload(self, payload: dict[str, Any]) -> ImageFinding:
+        bounding_box = payload.get("bounding_box")
+        if bounding_box is not None:
+            bounding_box = tuple(bounding_box)
+        return ImageFinding(
+            defect_type=str(payload.get("defect_type", "unknown")),
+            description=str(payload.get("description", "")),
+            location_on_asset=str(
+                payload.get("location_on_asset", "visible area in image")
+            ),
+            confidence=float(payload.get("confidence", 0.0)),
+            bounding_box=bounding_box,
+            severity_label=payload.get("severity_label"),
+        )
 
     def _extract_text_observations(
         self,

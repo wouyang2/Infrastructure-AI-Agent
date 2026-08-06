@@ -4,6 +4,10 @@ from typing import Literal
 
 from agents.helpers.observation_selection import SEVERITY_RANK, select_primary_observation
 from agents.helpers.severity_calibrator import calibrate_severity_from_observations
+from agents.helpers.severity_guidance_tool import (
+    SeverityGuidanceTool,
+    build_severity_guidance_query,
+)
 from agents.helpers.severity_rationale_generator import LLMSeverityRationaleGenerator
 from models import Citation, InspectionCase, Observation, SeverityAssessment
 from rag.interfaces import KnowledgeRetriever
@@ -36,17 +40,13 @@ class SeverityAgent:
         self,
         inspection_case: InspectionCase,
         observations: list[Observation],
+        citations: list[Citation] | None = None,
     ) -> SeverityAssessment:
         primary = select_primary_observation(observations)
-        query = self._build_query(inspection_case, primary)
-        citations = []
-        if primary.defect_type != "unknown":
-            citations = self.retriever.search(
-                query,
-                source_type="standard",
-                asset_type=inspection_case.asset.asset_type,
-                defect_type=primary.defect_type,
-                limit=2,
+        if citations is None:
+            citations = SeverityGuidanceTool(self.retriever).invoke(
+                inspection_case=inspection_case,
+                observations=observations,
             )
 
         text = " ".join(
@@ -139,10 +139,7 @@ class SeverityAgent:
         inspection_case: InspectionCase,
         observation: Observation,
     ) -> str:
-        return (
-            f"{inspection_case.asset.asset_type} {observation.defect_type} "
-            f"{inspection_case.asset.criticality} {observation.description}"
-        )
+        return build_severity_guidance_query(inspection_case, observation)
 
     def _highest_labeled_severity(
         self,

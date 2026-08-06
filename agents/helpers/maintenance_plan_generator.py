@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from typing import Any, Literal
 
+from agents.helpers.llm_runtime import llm_request_timeout_seconds
 from models import (
     HistoricalPrecedent,
     InspectionCase,
@@ -140,7 +141,12 @@ class LLMMaintenancePlanGenerator:
             ) from exc
 
         selected_model = model or os.getenv("OPENAI_PLANNING_MODEL", "gpt-4.1-mini")
-        return ChatOpenAI(model=selected_model, temperature=0).with_structured_output(
+        return ChatOpenAI(
+            model=selected_model,
+            temperature=0,
+            timeout=llm_request_timeout_seconds(env_name="OPENAI_PLANNING_TIMEOUT_SECONDS"),
+            max_retries=0,
+        ).with_structured_output(
             MAINTENANCE_PLAN_SCHEMA,
             method="json_schema",
             strict=True,

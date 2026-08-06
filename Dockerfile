@@ -16,6 +16,6 @@ COPY . .
 
 RUN mkdir -p artifacts
 
-EXPOSE 8001
+EXPOSE 8001 9181
 
 CMD ["python3", "-m", "uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8001"]

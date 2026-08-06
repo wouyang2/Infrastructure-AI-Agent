@@ -4,260 +4,290 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Infrastructure AI Agent</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <link rel="stylesheet" href="/static/styles.css?v=drawer-pinned-20260805" />
   </head>
   <body>
-    <main class="app-shell">
-      <section class="workspace">
-        <aside class="control-panel">
-          <div class="brand-block">
-            <p class="eyebrow">Infrastructure AI Agent</p>
-            <h1>Inspection Workflow</h1>
+    <!--
+      THESIS: A corridor command map binds every inspection run to its workflow, evidence, sources, decisions, and review; it refuses the stacked dashboard and permanent intake form.
+      OWN-WORLD: Mist-gray engineering paper, deep route-green ledger, thin transit lines, teal completion signals, amber active work, and compact technical typography.
+      STORY: The operator finds or starts a run, watches its route advance, investigates one result domain at a time, reviews the case, and exports the report.
+      FIRST VIEWPORT: A persistent 280px run ledger anchors the left; the selected case fills the right with a compact header, seven-stage route, and tabbed result workspace. New inspection opens from the rail into a right drawer.
+      FORM: Corridor Command Map, approved composition A, seed 85083b55.
+      FINISH: unreviewed and undocumented is unfinished; this build ends with the finish review, the verdict, and DESIGN.md
+    -->
+    <main id="operations-shell" class="operations-shell">
+      <aside class="run-rail" aria-label="Inspection runs">
+        <header class="rail-brand">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div class="brand-copy">
+            <strong>Infrastructure AI Agent</strong>
+            <span>Bridge inspection operations</span>
+          </div>
+          <button type="button" id="sidebar-toggle-button" class="sidebar-toggle-button" aria-expanded="true" aria-controls="inspection-queue inspection-history" title="Collapse sidebar">
+            <span class="sidebar-toggle-icon" aria-hidden="true"></span>
+          </button>
+        </header>
+
+        <button type="button" id="open-drawer-button" class="new-inspection-button">
+          <span class="plus-icon" aria-hidden="true"></span>
+          <span class="new-inspection-label">New inspection</span>
+        </button>
+
+        <div class="run-tools">
+          <label class="search-field">
+            <span class="sr-only">Search inspections</span>
+            <input id="run-search" type="search" placeholder="Search bridge or run ID" autocomplete="off" />
+          </label>
+          <label>
+            <span class="sr-only">Filter inspection status</span>
+            <select id="run-status-filter">
+              <option value="all">All statuses</option>
+              <option value="active">Active</option>
+              <option value="completed">Completed</option>
+              <option value="failed">Failed</option>
+              <option value="canceled">Canceled</option>
+            </select>
+          </label>
+        </div>
+
+        <section class="rail-section" data-rail-section="queue">
+          <div class="run-list-heading">
+            <button type="button" class="rail-section-toggle" data-toggle-section="queue" aria-expanded="true" aria-controls="inspection-queue">
+              <span class="collapse-icon" aria-hidden="true"></span>
+              <span>
+                <strong>Current Queue</strong>
+                <small id="queue-count">Loading runs...</small>
+              </span>
+            </button>
+            <div class="rail-actions">
+              <button type="button" id="refresh-cases-button" class="rail-refresh-button">Refresh</button>
+              <button type="button" id="clear-queue-button" class="rail-clear-button">Clear</button>
+            </div>
           </div>
 
-          <form id="inspection-form">
-            <div class="field-grid two">
-              <label>
-                Asset ID
-                <input name="asset_id" value="DEMO-BRIDGE-001" />
-              </label>
-              <label>
-                Criticality
-                <select name="criticality">
-                  <option value="high" selected>High</option>
-                  <option value="critical">Critical</option>
-                  <option value="medium">Medium</option>
-                  <option value="low">Low</option>
-                </select>
-              </label>
-            </div>
-
-            <label>
-              Asset Name
-              <input name="asset_name" value="Demo Bridge Span" />
-            </label>
-
-            <label>
-              Location
-              <input name="location" value="Midtown corridor" />
-            </label>
-
-            <div class="field-grid two">
-              <label>
-                Latitude
-                <input name="latitude" type="number" step="0.000001" value="40.7505" />
-              </label>
-              <label>
-                Longitude
-                <input name="longitude" type="number" step="0.000001" value="-73.9934" />
-              </label>
-            </div>
-
-            <label>
-              Inspection Notes
-              <textarea name="notes" rows="5">Inspection found spalling near an expansion joint with loose concrete and exposed substrate. No immediate closure is in place.</textarea>
-            </label>
-
-            <input name="image_path" type="hidden" />
-            <input name="video_path" type="hidden" />
-
-            <div class="drop-zone" id="drop-zone">
-              <input id="media-upload" type="file" accept="image/*,video/*" />
-              <div>
-                <strong>Drop inspection media</strong>
-                <span id="upload-status">or click to upload a bridge photo or video walkthrough</span>
-              </div>
-              <img id="upload-preview" alt="" hidden />
-              <video id="video-upload-preview" hidden controls muted></video>
-            </div>
-
-            <div class="field-grid two">
-              <label>
-                Image Analyzer
-                <select name="image_analyzer">
-                  <option value="heuristic">Heuristic</option>
-                  <option value="metadata" selected>Metadata</option>
-                  <option value="roboflow">Roboflow</option>
-                  <option value="openai">OpenAI</option>
-                </select>
-              </label>
-              <label>
-                Embeddings
-                <select name="embedding_backend">
-                  <option value="fake" selected>Fake</option>
-                  <option value="openai">OpenAI</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="field-grid two">
-              <label>
-                Planning
-                <select name="planning_mode">
-                  <option value="deterministic" selected>Deterministic</option>
-                  <option value="llm">LLM</option>
-                </select>
-              </label>
-              <label>
-                Scheduling
-                <select name="scheduling_mode">
-                  <option value="llm" selected>LLM</option>
-                  <option value="deterministic">Deterministic</option>
-                </select>
-              </label>
-            </div>
-
-            <div class="field-grid three">
-              <label>
-                Video Sampler
-                <select name="video_sampler">
-                  <option value="mock">Mock</option>
-                  <option value="opencv">OpenCV</option>
-                </select>
-              </label>
-              <label>
-                Frame Interval
-                <input name="video_frame_interval" type="number" min="0.1" step="0.5" value="5" />
-              </label>
-              <label>
-                Max Frames
-                <input name="video_max_frames" type="number" min="1" step="1" value="3" />
-              </label>
-            </div>
-
-            <label>
-              Report
-              <select name="report_mode">
-                <option value="llm" selected>LLM polished</option>
-                <option value="deterministic">Deterministic</option>
-              </select>
-            </label>
-
-            <div class="field-grid two">
-              <label>
-                Context
-                <select name="schedule_context_mode">
-                  <option value="mock" selected>Mock</option>
-                  <option value="live">Live APIs</option>
-                </select>
-              </label>
-              <label>
-                Events
-                <select name="event_provider">
-                  <option value="mock" selected>Mock</option>
-                  <option value="ticketmaster">Ticketmaster</option>
-                </select>
-              </label>
-            </div>
-
-            <button type="submit" id="run-button">Run Inspection</button>
-          </form>
-        </aside>
-
-        <section class="result-panel">
-          <div class="toolbar">
-            <div>
-              <p class="eyebrow">Run Output</p>
-              <h2 id="case-title">Ready for inspection</h2>
-            </div>
-            <div id="status-pill" class="status-pill idle">Idle</div>
+          <div id="inspection-queue" class="inspection-queue muted" aria-live="polite">
+            Loading inspection runs...
           </div>
-
-          <div class="sample-strip" id="sample-strip" aria-label="Sample bridge images"></div>
-
-          <div class="metrics-grid">
-            <article>
-              <span>Severity</span>
-              <strong id="metric-severity">-</strong>
-            </article>
-            <article>
-              <span>Repair</span>
-              <strong id="metric-repair">-</strong>
-            </article>
-            <article>
-              <span>Schedule</span>
-              <strong id="metric-schedule">-</strong>
-            </article>
-            <article>
-              <span>Context Risk</span>
-              <strong id="metric-risk">-</strong>
-            </article>
-          </div>
-
-          <section class="progress-panel" id="progress-panel" aria-live="polite">
-            <div class="progress-head">
-              <div>
-                <span>Live Progress</span>
-                <strong>No active run.</strong>
-              </div>
-              <span>0%</span>
-            </div>
-            <div class="progress-track"><div class="progress-fill" style="width: 0%"></div></div>
-          </section>
-
-          <div class="content-grid">
-            <section class="panel">
-              <h3>Observations</h3>
-              <div id="observations" class="list-block muted">No run yet.</div>
-            </section>
-
-            <section class="panel">
-              <h3>RAG & Scheduling Context</h3>
-              <div id="context" class="list-block muted">No run yet.</div>
-            </section>
-          </div>
-
-          <section class="panel">
-            <h3>Maintenance Plan</h3>
-            <div id="plan" class="list-block muted">No run yet.</div>
-          </section>
-
-          <section class="panel report-panel">
-            <div class="report-header-row">
-              <h3>Formal Report Preview</h3>
-              <button type="button" id="export-report-button" class="secondary-button" disabled>
-                Export Report
-              </button>
-            </div>
-            <article id="formal-report" class="formal-report">
-              <div class="empty-report">Run an inspection to generate the final report.</div>
-            </article>
-          </section>
-
-          <section class="panel review-panel">
-            <div class="report-header-row">
-              <h3>Case Review</h3>
-              <button type="button" id="refresh-cases-button" class="secondary-button">
-                Refresh Cases
-              </button>
-            </div>
-            <div class="review-grid">
-              <div>
-                <div id="case-history" class="case-history muted">No saved cases loaded.</div>
-              </div>
-              <div class="review-detail">
-                <div id="review-summary" class="list-block muted">Select a saved case.</div>
-                <label>
-                  Review Notes
-                  <textarea id="review-notes" rows="5" placeholder="Add engineer review notes"></textarea>
-                </label>
-                <div class="review-actions">
-                  <button type="button" class="secondary-button" data-review-status="approved">
-                    Approve
-                  </button>
-                  <button type="button" class="secondary-button" data-review-status="needs_revision">
-                    Needs Revision
-                  </button>
-                  <button type="button" class="secondary-button" data-review-status="rejected">
-                    Reject
-                  </button>
-                </div>
-              </div>
-            </div>
-          </section>
         </section>
+
+        <section class="rail-section history-section" data-rail-section="history">
+          <div class="run-list-heading history-heading">
+            <button type="button" class="rail-section-toggle" data-toggle-section="history" aria-expanded="true" aria-controls="inspection-history">
+              <span class="collapse-icon" aria-hidden="true"></span>
+              <span>
+                <strong>History</strong>
+                <small id="history-count">Completed and canceled inspections</small>
+              </span>
+            </button>
+          </div>
+
+          <div id="inspection-history" class="inspection-queue history-list muted" aria-live="polite">
+            Historical inspections will appear here.
+          </div>
+        </section>
+
+        <footer class="rail-footer">
+          <span class="system-dot" aria-hidden="true"></span>
+          <span>Durable queue connected</span>
+        </footer>
+      </aside>
+
+      <section class="case-workspace" aria-label="Selected inspection workspace">
+        <header class="case-header">
+          <div class="case-identity">
+            <h2 id="case-title">Select a run to inspect its results</h2>
+            <p id="case-location">Create a new inspection or choose a saved run from the ledger.</p>
+          </div>
+          <div class="case-actions">
+            <div id="status-pill" class="status-pill idle">Idle</div>
+            <button type="button" id="export-report-button" class="secondary-button" disabled>
+              Export Report
+            </button>
+          </div>
+        </header>
+
+        <section class="workflow-route" aria-label="Inspection workflow progress">
+          <ol id="workflow-route">
+            <li data-stage="intake"><span>1</span><strong>Intake</strong><small>Waiting</small></li>
+            <li data-stage="evidence"><span>2</span><strong>Evidence</strong><small>Waiting</small></li>
+            <li data-stage="severity"><span>3</span><strong>Severity</strong><small>Waiting</small></li>
+            <li data-stage="retrieval"><span>4</span><strong>RAG</strong><small>Waiting</small></li>
+            <li data-stage="planning"><span>5</span><strong>Planning</strong><small>Waiting</small></li>
+            <li data-stage="scheduling"><span>6</span><strong>Scheduling</strong><small>Waiting</small></li>
+            <li data-stage="report"><span>7</span><strong>Report</strong><small>Waiting</small></li>
+          </ol>
+        </section>
+
+        <nav class="result-tabs" role="tablist" aria-label="Inspection result sections">
+          <button type="button" role="tab" aria-selected="true" aria-controls="view-overview" data-tab="overview">Overview</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="view-observations" data-tab="observations">Observations <span id="observation-count">0</span></button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="view-rag" data-tab="rag">RAG sources <span id="citation-count">0</span></button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="view-plan" data-tab="plan">Maintenance plan</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="view-schedule" data-tab="schedule">Schedule</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="view-report" data-tab="report">Report</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="view-activity" data-tab="activity">Activity</button>
+        </nav>
+
+        <div class="result-viewport">
+          <section id="view-overview" class="result-view active" role="tabpanel" data-view="overview">
+            <div class="metrics-strip" aria-label="Inspection decision summary">
+              <div><span>Severity</span><strong id="metric-severity">-</strong></div>
+              <div><span>Repair decision</span><strong id="metric-repair">-</strong></div>
+              <div><span>Recommended window</span><strong id="metric-schedule">-</strong></div>
+              <div><span>Context risk</span><strong id="metric-risk">-</strong></div>
+            </div>
+
+            <div class="overview-grid">
+              <section class="data-section observation-summary">
+                <header>
+                  <div><h3>Observation summary</h3><p>Defects extracted from notes, images, and sampled video frames.</p></div>
+                  <button type="button" class="text-button" data-open-tab="observations">View all</button>
+                </header>
+                <div id="overview-observations" class="list-block muted">Observations will appear after evidence analysis.</div>
+              </section>
+
+              <section class="data-section decision-summary">
+                <header><div><h3>Decision summary</h3><p>Current severity and recommended response.</p></div></header>
+                <div id="decision-summary" class="list-block muted">Assessment details will appear after severity analysis.</div>
+              </section>
+
+              <section class="data-section media-summary">
+                <header><div><h3>Visual evidence</h3><p>Uploaded inspection images and videos tied to this case.</p></div></header>
+                <div id="overview-media" class="media-gallery muted">Uploaded media will appear with the selected case.</div>
+              </section>
+
+              <section class="data-section source-summary">
+                <header>
+                  <div><h3>Retrieved evidence</h3><p>Standards and historical precedents used by the agents.</p></div>
+                  <button type="button" class="text-button" data-open-tab="rag">View sources</button>
+                </header>
+                <div id="overview-rag" class="list-block muted">Retrieved sources will appear with the selected case.</div>
+              </section>
+
+              <section class="data-section progress-panel" id="progress-panel" aria-live="polite">
+                <div class="progress-head">
+                  <div><h3>Live Progress</h3><strong>Waiting for a selected run.</strong></div>
+                  <span>0%</span>
+                </div>
+                <div class="progress-track"><div class="progress-fill" style="width: 0%"></div></div>
+              </section>
+            </div>
+          </section>
+
+          <section id="view-observations" class="result-view" role="tabpanel" data-view="observations" hidden>
+            <header class="view-header"><div><h3>Observations</h3><p>Evidence-level findings remain connected to their source and confidence.</p></div></header>
+            <div id="observations" class="table-wrap muted">Observation records will appear here.</div>
+          </section>
+
+          <section id="view-rag" class="result-view" role="tabpanel" data-view="rag" hidden>
+            <header class="view-header"><div><h3>RAG sources</h3><p>Retrieved guidance, repair precedents, and scheduling context used by downstream decisions.</p></div></header>
+            <div id="context" class="rag-layout muted">Retrieval context will appear here.</div>
+          </section>
+
+          <section id="view-plan" class="result-view" role="tabpanel" data-view="plan" hidden>
+            <header class="view-header"><div><h3>Maintenance plan</h3><p>Recommended work, resources, dependencies, and execution risks.</p></div></header>
+            <div id="plan" class="plan-layout muted">Maintenance recommendations will appear here.</div>
+          </section>
+
+          <section id="view-schedule" class="result-view" role="tabpanel" data-view="schedule" hidden>
+            <header class="view-header"><div><h3>Repair schedule</h3><p>Recommended work window balanced against weather, traffic, events, and access risk.</p></div></header>
+            <div id="schedule" class="schedule-layout muted">Scheduling recommendations will appear here.</div>
+          </section>
+
+          <section id="view-report" class="result-view report-view" role="tabpanel" data-view="report" hidden>
+            <header class="view-header">
+              <div><h3>Formal Report Preview</h3><p>Review the assembled inspection record before export.</p></div>
+              <button type="button" id="report-export-button" class="secondary-button" disabled>Export Report</button>
+            </header>
+            <article id="formal-report" class="formal-report">
+              <div class="empty-state">Select a completed inspection to preview its report.</div>
+            </article>
+          </section>
+
+          <section id="view-activity" class="result-view" role="tabpanel" data-view="activity" hidden>
+            <header class="view-header"><div><h3>Activity & Case Review</h3><p>Durable workflow events, retries, review notes, and approval state.</p></div></header>
+            <div class="activity-grid">
+              <section class="data-section">
+                <header><div><h3>Workflow activity</h3><p>Persisted events for the selected run.</p></div></header>
+                <div id="event-stream" class="event-stream muted">Workflow events will appear here.</div>
+              </section>
+              <section class="data-section review-panel">
+                <header><div><h3>Case Review</h3><p>Record the engineer decision against this run.</p></div></header>
+                <div id="review-summary" class="list-block muted">Select a completed case.</div>
+                <label>Review notes<textarea id="review-notes" rows="5" placeholder="Add engineering review notes"></textarea></label>
+                <div class="review-actions">
+                  <button type="button" class="secondary-button" data-review-status="approved">Approve</button>
+                  <button type="button" class="secondary-button" data-review-status="needs_revision">Needs revision</button>
+                  <button type="button" class="danger-button" data-review-status="rejected">Reject</button>
+                </div>
+              </section>
+            </div>
+          </section>
+        </div>
       </section>
     </main>
+
+    <div id="drawer-overlay" class="drawer-overlay" hidden></div>
+    <aside id="inspection-drawer" class="inspection-drawer" aria-hidden="true" aria-labelledby="drawer-title">
+      <header class="drawer-header">
+        <div><h2 id="drawer-title">New inspection</h2><p>Define the asset, attach field evidence, and queue a durable run.</p></div>
+        <button type="button" id="close-drawer-button" class="icon-button close-button" aria-label="Close new inspection" title="Close"></button>
+      </header>
+
+      <form id="inspection-form" class="drawer-form-body">
+        <section class="form-section">
+          <h3>Asset</h3>
+          <div class="field-grid two">
+            <label>Asset ID<input name="asset_id" value="DEMO-BRIDGE-001" required /></label>
+            <label>Criticality<select name="criticality"><option value="critical">Critical</option><option value="high" selected>High</option><option value="medium">Medium</option><option value="low">Low</option></select></label>
+          </div>
+          <label>Asset name<input name="asset_name" value="Demo Bridge Span" required /></label>
+          <label>Location<input name="location" value="Midtown corridor" required /></label>
+          <div class="field-grid two">
+            <label>Latitude<input name="latitude" type="number" step="0.000001" value="40.7505" /></label>
+            <label>Longitude<input name="longitude" type="number" step="0.000001" value="-73.9934" /></label>
+          </div>
+        </section>
+
+        <section class="form-section">
+          <h3>Evidence</h3>
+          <label>Inspection notes<textarea name="notes" rows="4">Inspection found spalling near an expansion joint with loose concrete and exposed substrate. No immediate closure is in place.</textarea></label>
+          <input name="image_path" type="hidden" />
+          <input name="video_path" type="hidden" />
+          <div class="drop-zone" id="drop-zone">
+            <input id="media-upload" type="file" accept="image/*,video/*" />
+            <div><strong>Drop inspection media</strong><span id="upload-status">Image or video; the file type selects the analysis path.</span></div>
+            <img id="upload-preview" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==" alt="Uploaded inspection preview" hidden />
+            <video id="video-upload-preview" hidden controls muted></video>
+          </div>
+        </section>
+
+        <details class="runtime-settings">
+          <summary>Runtime configuration</summary>
+          <div class="runtime-fields">
+            <div class="field-grid two">
+              <label>Image analyzer<select name="image_analyzer"><option value="heuristic">Heuristic</option><option value="metadata" selected>Metadata</option><option value="roboflow">Roboflow</option><option value="openai">OpenAI</option></select></label>
+              <label>Embeddings<select name="embedding_backend"><option value="fake" selected>Fake</option><option value="openai">OpenAI</option></select></label>
+              <label>Planning<select name="planning_mode"><option value="deterministic" selected>Deterministic</option><option value="llm">LLM</option></select></label>
+              <label>Scheduling<select name="scheduling_mode"><option value="llm" selected>LLM</option><option value="deterministic">Deterministic</option></select></label>
+              <label>Report<select name="report_mode"><option value="llm" selected>LLM polished</option><option value="deterministic">Deterministic</option></select></label>
+              <label>Context<select name="schedule_context_mode"><option value="mock" selected>Mock</option><option value="live">Live APIs</option></select></label>
+              <label>Events<select name="event_provider"><option value="mock" selected>Mock</option><option value="ticketmaster">Ticketmaster</option></select></label>
+              <label>Video sampler<select name="video_sampler"><option value="mock">Mock</option><option value="opencv">OpenCV</option></select></label>
+              <label>Frame interval<input name="video_frame_interval" type="number" min="0.1" step="0.5" value="4.6" /></label>
+              <label>Max frames<input name="video_max_frames" type="number" min="1" step="1" value="3" /></label>
+            </div>
+            <label>API Key<input name="api_key" type="password" autocomplete="off" placeholder="Optional when API auth is enabled" /></label>
+          </div>
+        </details>
+
+      </form>
+
+      <footer class="drawer-actions">
+        <button type="button" id="cancel-inspection-button" class="secondary-button">Cancel</button>
+        <button type="submit" id="run-button" form="inspection-form">Run Inspection</button>
+      </footer>
+    </aside>
 
     <script src="/static/app.js"></script>
   </body>

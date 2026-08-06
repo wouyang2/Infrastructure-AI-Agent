@@ -47,6 +47,8 @@ from agents.helpers.severity_rationale_generator import (
     LLMSeverityRationaleGenerator,
 )
 from runtime.cache_store import InMemoryCacheStore
+from storage.database import SessionLocal, init_database
+from storage.repositories import create_inspection_run, get_inspection_run
 from agents.helpers.video_sampler import OpenCVVideoFrameSampler
 from agents.maintenance_planning_agent import MaintenancePlanningAgent
 from agents.scheduling_agent import SchedulingAgent
@@ -57,6 +59,7 @@ from models import (
     Citation,
     Evidence,
     EventContext,
+    HistoricalPrecedent,
     InspectionCase,
     MaintenancePlan,
     Observation,
@@ -101,7 +104,7 @@ def test_heuristic_image_analyzer_is_default() -> None:
     assert args.vision_verifier == "none"
     assert args.verification_confidence_threshold == 0.55
     assert args.verifier_prompt_profile is None
-    assert args.video_frame_interval == 5.0
+    assert args.video_frame_interval == 4.6
     assert args.video_max_frames == 3
     assert isinstance(build_image_analyzer(args.image_analyzer), HeuristicImageAnalyzer)
     assert args.rag_backend == "chroma"
@@ -149,12 +152,20 @@ def test_workflow_trace_is_written(tmp_path) -> None:
     assert trace["repair_required"] is True
     assert [event["node"] for event in trace["events"]] == [
         "intake",
+        "video_frame_tool",
+        "image_analysis_tool",
         "evidence",
+        "severity_guidance_tool",
         "severity",
+        "maintenance_precedent_tool",
         "maintenance_planning",
         "schedule_context",
+        "schedule_precedent_tool",
         "scheduling",
         "report",
+        "annotated_artifact_tool",
+        "report_render_tool",
+        "persist_report_tool",
     ]
     assert all(event["status"] == "ok" for event in trace["events"])
 
@@ -1300,6 +1311,7 @@ def test_llm_report_mode_uses_mocked_markdown() -> None:
 
     report = _run_test_graph(
         {
+            "client_run_id": "llm_report_mocked_" + str(id(generator)),
             "asset_id": "A-212",
             "asset_type": "bridge",
             "asset_name": "LLM Report Bridge",
@@ -1333,6 +1345,7 @@ def test_llm_report_retries_after_invalid_output() -> None:
 
     report = _run_test_graph(
         {
+            "client_run_id": "llm_report_retry_" + str(id(runnable)),
             "asset_id": "A-213",
             "asset_type": "bridge",
             "asset_name": "Retry Report Bridge",
@@ -1359,6 +1372,7 @@ def test_llm_report_fallback_after_retry_exhaustion() -> None:
 
     report = _run_test_graph(
         {
+            "client_run_id": "llm_report_fallback_" + str(id(generator)),
             "asset_id": "A-214",
             "asset_type": "bridge",
             "asset_name": "Fallback Report Bridge",
@@ -1387,6 +1401,7 @@ def test_llm_report_fail_mode_raises_after_retry_exhaustion() -> None:
     with pytest.raises(LLMReportError, match="failed after 2 attempts"):
         _run_test_graph(
             {
+                "client_run_id": "llm_report_fail_" + str(id(generator)),
                 "asset_id": "A-215",
                 "asset_type": "bridge",
                 "asset_name": "Fail Report Bridge",
@@ -2668,6 +2683,409 @@ def test_mock_schedule_context_collector_uses_weather_traffic_and_event_tools() 
     assert context.traffic[0].risk_score == 4
     assert context.events[0].title == "Stadium egress"
     assert context.events[0].risk_score == 3
+
+
+def test_schedule_context_tool_reuses_completed_idempotent_output(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    class CountingScheduleContextCollector:
+        def collect(self, inspection_case, repair_windows):
+            calls["count"] += 1
+            return SchedulingContext(
+                weather=[
+                    WeatherContext(
+                        repair_windows[0]["start"],
+                        "clear",
+                        0,
+                        "Collected once.",
+                    )
+                ],
+                traffic=[],
+                events=[],
+                access_risk_score=1,
+            )
+
+    monkeypatch.setattr(
+        "workflows.inspection_graph.build_schedule_context_collector",
+        lambda *args, **kwargs: CountingScheduleContextCollector(),
+    )
+    run_id = "schedule_context_idempotency_test_" + str(id(calls))
+    input_values = {
+        "client_run_id": run_id,
+        "asset_id": "SCHED-IDEMP-001",
+        "asset_type": "bridge",
+        "asset_name": "Idempotent Schedule Context Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection found spalling with loose concrete.",
+        "image_paths": [],
+        "video_paths": [],
+        "reason": "idempotency_test",
+    }
+
+    first_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+    second_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+
+    assert calls["count"] == 1
+    assert first_report.schedule is not None
+    assert second_report.schedule is not None
+    assert first_report.schedule.context_risk_score == second_report.schedule.context_risk_score
+
+
+def test_severity_guidance_tool_reuses_completed_idempotent_output(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    class CountingSeverityGuidanceTool:
+        def __init__(self, retriever):
+            pass
+
+        def invoke(self, *, inspection_case, observations):
+            calls["count"] += 1
+            return [
+                Citation(
+                    document_id="STD-IDEMP-001",
+                    title="Idempotent Severity Standard",
+                    source_type="standard",
+                    excerpt="Severity guidance collected once.",
+                    score=0.99,
+                )
+            ]
+
+    monkeypatch.setattr(
+        "workflows.inspection_graph.SeverityGuidanceTool",
+        CountingSeverityGuidanceTool,
+    )
+    run_id = "severity_guidance_idempotency_test_" + str(id(calls))
+    input_values = {
+        "client_run_id": run_id,
+        "asset_id": "SEV-IDEMP-001",
+        "asset_type": "bridge",
+        "asset_name": "Idempotent Severity Guidance Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection found spalling with loose concrete.",
+        "image_paths": [],
+        "video_paths": [],
+        "reason": "idempotency_test",
+    }
+
+    first_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+    second_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+
+    assert calls["count"] == 1
+    assert first_report.severity.citations[0].document_id == "STD-IDEMP-001"
+    assert second_report.severity.citations[0].document_id == "STD-IDEMP-001"
+
+
+def test_maintenance_precedent_tool_reuses_completed_idempotent_output(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    class CountingMaintenancePrecedentTool:
+        def __init__(self, retriever):
+            pass
+
+        def invoke(self, *, inspection_case, observations, severity):
+            calls["count"] += 1
+            citation = Citation(
+                document_id="HIST-IDEMP-001",
+                title="Idempotent Repair Record",
+                source_type="repair_record",
+                excerpt="Repair precedent collected once.",
+                score=0.99,
+            )
+            precedent = {
+                "document_id": "HIST-IDEMP-001",
+                "title": "Idempotent Repair Record",
+                "repair_method": "partial-depth concrete patch",
+                "repair_outcome": "successful permanent repair",
+                "actual_duration_hours": 6,
+                "disruption": "low disruption",
+                "materials_used": "patching concrete; bonding agent",
+                "equipment_used": "concrete repair tools",
+                "permit_required": "yes",
+            }
+            return {
+                "historical_precedents": [
+                    HistoricalPrecedent(
+                        document_id=precedent["document_id"],
+                        title=precedent["title"],
+                        repair_method=precedent["repair_method"],
+                        outcome=precedent["repair_outcome"],
+                        actual_duration_hours=precedent["actual_duration_hours"],
+                        disruption=precedent["disruption"],
+                        citation=citation,
+                    )
+                ],
+                "precedent_documents": [precedent],
+            }
+
+    monkeypatch.setattr(
+        "workflows.inspection_graph.MaintenancePrecedentTool",
+        CountingMaintenancePrecedentTool,
+    )
+    run_id = "maintenance_precedent_idempotency_test_" + str(id(calls))
+    input_values = {
+        "client_run_id": run_id,
+        "asset_id": "MAINT-IDEMP-001",
+        "asset_type": "bridge",
+        "asset_name": "Idempotent Maintenance Precedent Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection found spalling with loose concrete.",
+        "image_paths": [],
+        "video_paths": [],
+        "reason": "idempotency_test",
+    }
+
+    first_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+    second_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+
+    assert calls["count"] == 1
+    assert first_report.maintenance_plan.historical_precedents[0].document_id == "HIST-IDEMP-001"
+    assert second_report.maintenance_plan.historical_precedents[0].document_id == "HIST-IDEMP-001"
+    assert "patching concrete" in first_report.maintenance_plan.materials
+
+
+def test_annotated_artifact_tool_reuses_completed_idempotent_output(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    class CountingArtifactGenerator:
+        def generate(self, report):
+            calls["count"] += 1
+            return ["artifacts/annotated_images/idempotent-artifact.jpg"]
+
+    monkeypatch.setattr(
+        "workflows.inspection_graph.AnnotatedImageArtifactGenerator",
+        CountingArtifactGenerator,
+    )
+    run_id = "annotated_artifact_idempotency_test_" + str(id(calls))
+    input_values = {
+        "client_run_id": run_id,
+        "asset_id": "ARTIFACT-IDEMP-001",
+        "asset_type": "bridge",
+        "asset_name": "Idempotent Artifact Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection found spalling with loose concrete.",
+        "image_paths": [],
+        "video_paths": [],
+        "reason": "idempotency_test",
+    }
+
+    first_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+    second_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+
+    assert calls["count"] == 1
+    assert first_report.annotated_media_paths == [
+        "artifacts/annotated_images/idempotent-artifact.jpg"
+    ]
+    assert second_report.annotated_media_paths == [
+        "artifacts/annotated_images/idempotent-artifact.jpg"
+    ]
+
+
+def test_report_render_tool_reuses_completed_idempotent_output(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    def counting_render(self, report):
+        calls["count"] += 1
+        return "Rendered report collected once."
+
+    monkeypatch.setattr(
+        "workflows.inspection_graph.ReportAgent.render",
+        counting_render,
+    )
+    run_id = "report_render_idempotency_test_" + str(id(calls))
+    input_values = {
+        "client_run_id": run_id,
+        "asset_id": "REPORT-IDEMP-001",
+        "asset_type": "bridge",
+        "asset_name": "Idempotent Report Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection found spalling with loose concrete.",
+        "image_paths": [],
+        "video_paths": [],
+        "reason": "idempotency_test",
+    }
+
+    first_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+    second_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+
+    assert calls["count"] == 1
+    assert first_report.rendered_report == "Rendered report collected once."
+    assert second_report.rendered_report == "Rendered report collected once."
+
+
+def test_persist_report_tool_completes_existing_sql_run() -> None:
+    init_database()
+    run_id = "persist_report_tool_test_" + str(datetime.now().timestamp()).replace(".", "_")
+    request_data = {
+        "asset_id": "PERSIST-IDEMP-001",
+        "asset_type": "bridge",
+        "asset_name": "Persist Tool Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection found spalling with loose concrete.",
+        "image_paths": [],
+        "video_paths": [],
+        "reason": "persist_tool_test",
+    }
+    session = SessionLocal()
+    try:
+        create_inspection_run(
+            session,
+            request_data=request_data,
+            run_id=run_id,
+            status="queued",
+        )
+    finally:
+        session.close()
+
+    report = _run_test_graph(
+        {"client_run_id": run_id, **request_data},
+        enable_memory_checkpoint=False,
+    )
+
+    session = SessionLocal()
+    try:
+        record = get_inspection_run(session, run_id)
+        assert record is not None
+        assert record.status == "completed"
+        assert record.case_id == report.case.case_id
+        assert record.report_json is not None
+        assert record.report_json["case"]["case_id"] == report.case.case_id
+        assert record.rendered_report == report.rendered_report
+    finally:
+        session.close()
+
+
+def test_video_frame_tool_reuses_completed_idempotent_output(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    class CountingVideoSampler:
+        def sample(self, video_path):
+            calls["count"] += 1
+            return [
+                type(
+                    "Frame",
+                    (),
+                    {
+                        "video_path": video_path,
+                        "image_path": "bridge_spalling_frame_000.jpg",
+                        "timestamp_seconds": 0.0,
+                    },
+                )()
+            ]
+
+    monkeypatch.setattr(
+        "workflows.inspection_graph.build_video_frame_sampler",
+        lambda *args, **kwargs: CountingVideoSampler(),
+    )
+    run_id = "video_frame_idempotency_test_" + str(id(calls))
+    input_values = {
+        "client_run_id": run_id,
+        "asset_id": "VIDEO-IDEMP-001",
+        "asset_type": "bridge",
+        "asset_name": "Idempotent Video Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection video submitted for review.",
+        "image_paths": [],
+        "video_paths": ["samples/bridge_spalling_walkthrough.mp4"],
+        "reason": "idempotency_test",
+    }
+
+    first_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+    second_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+
+    assert calls["count"] == 1
+    assert first_report.observations[0].source_modality == "video_frame"
+    assert second_report.observations[0].source_modality == "video_frame"
+
+
+def test_image_analysis_tool_reuses_completed_idempotent_output(monkeypatch) -> None:
+    calls = {"count": 0}
+
+    class CountingImageAnalyzer:
+        def analyze(self, image_path, asset_type):
+            calls["count"] += 1
+            return [
+                ImageFinding(
+                    defect_type="spalling",
+                    description="Image analysis collected once.",
+                    location_on_asset="girder face",
+                    confidence=0.8,
+                    severity_label="moderate",
+                )
+            ]
+
+    monkeypatch.setattr(
+        "workflows.inspection_graph.build_image_analyzer",
+        lambda *args, **kwargs: CountingImageAnalyzer(),
+    )
+    run_id = "image_analysis_idempotency_test_" + str(id(calls))
+    input_values = {
+        "client_run_id": run_id,
+        "asset_id": "IMAGE-IDEMP-001",
+        "asset_type": "bridge",
+        "asset_name": "Idempotent Image Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection image submitted for review.",
+        "image_paths": ["samples/bridge_spalling_joint.jpg"],
+        "video_paths": [],
+        "reason": "idempotency_test",
+    }
+
+    first_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+    second_report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+
+    assert calls["count"] == 1
+    assert first_report.observations[0].description == "Image analysis collected once."
+    assert second_report.observations[0].description == "Image analysis collected once."
 
 
 def test_openweather_context_tool_maps_forecast_payload() -> None:

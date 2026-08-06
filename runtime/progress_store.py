@@ -33,6 +33,9 @@ class ProgressStore(Protocol):
     def fail_run(self, run_id: str, *, message: str) -> dict[str, Any]:
         ...
 
+    def cancel_run(self, run_id: str, *, message: str = "Inspection canceled.") -> dict[str, Any]:
+        ...
+
     def get_progress(self, run_id: str) -> dict[str, Any] | None:
         ...
 
@@ -84,6 +87,15 @@ class InMemoryProgressStore:
             run_id,
             stage="failed",
             status="failed",
+            message=message,
+            percent=100,
+        )
+
+    def cancel_run(self, run_id: str, *, message: str = "Inspection canceled.") -> dict[str, Any]:
+        return self.record_event(
+            run_id,
+            stage="canceled",
+            status="canceled",
             message=message,
             percent=100,
         )
@@ -155,6 +167,15 @@ class RedisProgressStore:
             run_id,
             stage="failed",
             status="failed",
+            message=message,
+            percent=100,
+        )
+
+    def cancel_run(self, run_id: str, *, message: str = "Inspection canceled.") -> dict[str, Any]:
+        return self.record_event(
+            run_id,
+            stage="canceled",
+            status="canceled",
             message=message,
             percent=100,
         )

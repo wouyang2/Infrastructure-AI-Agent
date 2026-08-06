@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlalchemy import JSON, DateTime, Integer, String, Text
+from sqlalchemy import JSON, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -85,3 +85,82 @@ class ToolRunRecord(Base):
         onupdate=lambda: datetime.now(UTC),
     )
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class InspectionReviewEventRecord(Base):
+    __tablename__ = "inspection_review_events"
+
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("inspection_runs.run_id"),
+        index=True,
+    )
+    previous_status: Mapped[str | None] = mapped_column(String(32))
+    new_status: Mapped[str] = mapped_column(String(32), index=True)
+    reviewer_notes: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[str | None] = mapped_column(String(128), index=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        index=True,
+    )
+
+
+class InspectionRunEventRecord(Base):
+    __tablename__ = "inspection_run_events"
+
+    event_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str] = mapped_column(
+        String(64),
+        ForeignKey("inspection_runs.run_id"),
+        index=True,
+    )
+    stage: Mapped[str] = mapped_column(String(128), index=True)
+    status: Mapped[str] = mapped_column(String(32), index=True)
+    message: Mapped[str] = mapped_column(Text)
+    percent: Mapped[int] = mapped_column(Integer)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    attempt: Mapped[int | None] = mapped_column(Integer)
+    max_attempts: Mapped[int | None] = mapped_column(Integer)
+    retries_left: Mapped[int | None] = mapped_column(Integer)
+    job_id: Mapped[str | None] = mapped_column(String(255), index=True)
+    worker_name: Mapped[str | None] = mapped_column(String(255))
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        index=True,
+    )
+
+
+class InspectionMediaRecord(Base):
+    __tablename__ = "inspection_media"
+
+    media_id: Mapped[str] = mapped_column(String(64), primary_key=True)
+    run_id: Mapped[str | None] = mapped_column(
+        String(64),
+        ForeignKey("inspection_runs.run_id"),
+        index=True,
+    )
+    media_type: Mapped[str] = mapped_column(String(32), index=True)
+    original_filename: Mapped[str] = mapped_column(String(255))
+    content_type: Mapped[str | None] = mapped_column(String(128))
+    size_bytes: Mapped[int] = mapped_column(Integer)
+    checksum_sha256: Mapped[str] = mapped_column(String(64), index=True)
+    storage_backend: Mapped[str] = mapped_column(String(32), index=True)
+    storage_key: Mapped[str] = mapped_column(String(512), index=True)
+    file_path: Mapped[str] = mapped_column(String(512), index=True)
+    preview_url: Mapped[str] = mapped_column(String(512))
+    scan_status: Mapped[str] = mapped_column(String(32), index=True)
+    metadata_json: Mapped[dict[str, Any]] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        index=True,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+    )

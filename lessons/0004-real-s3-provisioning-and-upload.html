@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lesson 0004: Real S3 Provisioning And Upload</title>
+    <style>
+      :root { color-scheme: light; --paper:#f8faf8; --ink:#17211d; --muted:#5f6f67; --line:#d7dfda; --soft:#edf4f0; --accent:#176b62; --warn:#9b6316; }
+      body { margin:0; background:var(--paper); color:var(--ink); font-family:Avenir Next, Inter, system-ui, sans-serif; line-height:1.55; }
+      main { max-width:940px; margin:0 auto; padding:44px 28px 72px; }
+      .eyebrow { margin:0 0 6px; color:var(--accent); font-size:12px; font-weight:800; text-transform:uppercase; }
+      h1 { margin:0; font-size:34px; line-height:1.1; letter-spacing:0; }
+      .lede { max-width:78ch; color:var(--muted); font-size:16px; }
+      section { margin-top:28px; }
+      h2 { margin:0 0 12px; font-size:20px; }
+      h3 { margin:0 0 6px; font-size:15px; }
+      p { margin:0 0 12px; }
+      a { color:var(--accent); }
+      .grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+      .card, .exercise, .answer, .flow { padding:16px 18px; border:1px solid var(--line); border-radius:8px; background:white; }
+      .card strong, .flow strong { color:var(--accent); }
+      code, pre { background:var(--soft); border-radius:5px; }
+      code { padding:2px 5px; }
+      pre { padding:14px; overflow:auto; }
+      details { margin-top:10px; }
+      summary { cursor:pointer; font-weight:800; color:var(--accent); }
+      .answer { margin-top:10px; background:#fbf7ee; border-color:#ead7b9; }
+      .warning { border-left:4px solid var(--warn); padding:12px 14px; background:#fff8ed; }
+      .sources { font-size:13px; color:var(--muted); }
+      @media (max-width:800px) { .grid { grid-template-columns:1fr; } main { padding:28px 18px 56px; } h1 { font-size:28px; } }
+      @media print { body{background:white;} main{padding:20px;} .card,.exercise,.answer,.flow{break-inside:avoid;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Lesson 0004 · Real S3 run</p>
+        <h1>To use real S3, your app needs a destination and permission.</h1>
+        <p class="lede">This lesson connects the AWS ideas to the exact workflow in this project: authenticate locally, provision an S3 bucket and IAM policy, point the app at that bucket, then run one upload.</p>
+      </header>
+
+      <section>
+        <h2>The four moving parts</h2>
+        <div class="grid">
+          <div class="card"><h3>1. Credentials</h3><p>Your local machine proves to AWS who you are. This can come from <strong>AWS CLI/profile</strong> or temporary environment variables.</p></div>
+          <div class="card"><h3>2. Provisioning</h3><p>A script creates the bucket, encryption, public access block, tags, and least-privilege IAM policy.</p></div>
+          <div class="card"><h3>3. App config</h3><p>Environment variables tell FastAPI/RQ to use <strong>S3 media storage</strong> instead of local disk.</p></div>
+          <div class="card"><h3>4. Smoke upload</h3><p>A tiny test image goes through the same storage interface the real inspection uploads use.</p></div>
+        </div>
+      </section>
+
+      <section>
+        <h2>Why credentials are separate from app config</h2>
+        <p><code>AWS_S3_MEDIA_BUCKET</code> tells the app where to store files. It does not prove the app is allowed to write there.</p>
+        <p><code>AWS_ACCESS_KEY_ID</code>, an AWS profile, or an IAM role proves the caller identity. IAM policies decide what that identity can do.</p>
+        <div class="warning">
+          <p><strong>Do not paste AWS keys into chat or commit them to git.</strong> Set them in your local terminal, local ignored <code>.env</code>, or use an AWS profile.</p>
+        </div>
+      </section>
+
+      <section>
+        <h2>The project workflow</h2>
+        <div class="flow">
+          <p><strong>Dry run first:</strong> shows what would be created.</p>
+          <pre><code>python3 scripts/aws/provision_s3_media.py \
+  --region us-east-1 \
+  --create-ecs-role</code></pre>
+
+          <p><strong>Apply when ready:</strong> creates AWS resources.</p>
+          <pre><code>python3 scripts/aws/provision_s3_media.py \
+  --region us-east-1 \
+  --create-ecs-role \
+  --apply</code></pre>
+
+          <p><strong>Point the app at S3:</strong></p>
+          <pre><code>MEDIA_STORAGE_BACKEND=s3
+AWS_S3_MEDIA_BUCKET=infra-agent-media-&lt;account-id&gt;-us-east-1
+AWS_REGION=us-east-1
+AWS_S3_MEDIA_PREFIX=inspection-media
+AWS_S3_PRESIGN_EXPIRES_SECONDS=900</code></pre>
+
+          <p><strong>Upload one test image:</strong></p>
+          <pre><code>python3 scripts/aws/smoke_s3_media_upload.py</code></pre>
+        </div>
+      </section>
+
+      <section>
+        <h2>What success looks like</h2>
+        <p>The smoke upload prints an S3-style key, such as:</p>
+        <pre><code>backend=s3
+key=inspection-media/smoke/s3-smoke.png
+file_path=s3://infra-agent-media-.../inspection-media/smoke/s3-smoke.png
+preview_url=https://...</code></pre>
+        <p>That means the storage layer is no longer dependent on the API container’s local filesystem.</p>
+      </section>
+
+      <section class="exercise">
+        <h2>Retrieval practice</h2>
+        <p><strong>Question:</strong> If the app has <code>AWS_S3_MEDIA_BUCKET</code> configured but no AWS credentials, what happens?</p>
+        <details>
+          <summary>Show answer</summary>
+          <div class="answer">
+            <p>The app knows the target bucket name, but AWS rejects the request because the caller has not authenticated. Destination config is not permission.</p>
+          </div>
+        </details>
+      </section>
+
+      <section>
+        <h2>Connect the lessons</h2>
+        <p>Lesson 2 explained buckets, keys, and presigned URLs. Lesson 3 explained IAM least privilege. This lesson combines them into one real project workflow.</p>
+        <p>References: <a href="../reference/s3-media-storage-pattern.html">S3 Media Storage Pattern</a> and <a href="../reference/s3-iam-policy-sketch.html">S3 IAM Policy Sketch</a>.</p>
+      </section>
+
+      <section class="sources">
+        <h2>Primary sources</h2>
+        <ul>
+          <li><a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingObjects.html">AWS: Working with S3 objects</a></li>
+          <li><a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/security-block-public-access.html">AWS: Blocking public access to S3 storage</a></li>
+          <li><a href="https://docs.aws.amazon.com/IAM/latest/UserGuide/id_roles.html">AWS: IAM roles</a></li>
+        </ul>
+        <p>Ask the agent follow-up questions on anything unclear. Good next question: “Which credential option should I use locally?”</p>
+      </section>
+    </main>
+  </body>
+</html>

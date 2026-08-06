@@ -1,0 +1,7 @@
+{
+  "mode": "disabled",
+  "stage": "scheduling",
+  "status": "running",
+  "marker_dir": "artifacts/crash_markers",
+  "hard_exit_code": 70
+}

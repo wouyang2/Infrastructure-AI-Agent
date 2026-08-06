@@ -82,7 +82,7 @@ class RQInspectionJobQueue:
             execute_inspection_run,
             run_id,
             request_data,
-            job_id=f"inspection:{run_id}",
+            job_id=f"inspection-{run_id}",
             retry=self.retry,
         )
         return JobDispatchResult(backend="rq", job_id=job.id)
