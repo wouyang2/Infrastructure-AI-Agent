@@ -4,6 +4,7 @@ import base64
 from io import BytesIO
 from uuid import uuid4
 
+import pytest
 from fastapi.testclient import TestClient
 from PIL import Image
 
@@ -21,12 +22,16 @@ client = TestClient(app)
 class FakeS3Client:
     def __init__(self) -> None:
         self.uploads = []
+        self.deleted = []
 
     def upload_file(self, filename, bucket, key, ExtraArgs=None):
         self.uploads.append((filename, bucket, key, ExtraArgs))
 
     def generate_presigned_url(self, operation, Params, ExpiresIn):
         return f"https://signed.example/{Params['Bucket']}/{Params['Key']}?expires={ExpiresIn}"
+
+    def delete_object(self, Bucket, Key):
+        self.deleted.append((Bucket, Key))
 
 
 def test_health_endpoint() -> None:
@@ -296,6 +301,41 @@ def test_upload_image_multipart_can_use_s3_storage(monkeypatch, tmp_path) -> Non
     assert payload["file_path"].startswith("s3://infra-agent-media-test/")
     assert payload["preview_url"].startswith("https://signed.example/infra-agent-media-test/")
     assert fake_client.uploads
+
+
+def test_upload_image_cleans_s3_object_when_media_record_fails(
+    monkeypatch,
+    tmp_path,
+) -> None:
+    fake_client = FakeS3Client()
+    monkeypatch.setattr(
+        api_module,
+        "MEDIA_STORAGE",
+        S3MediaStorage(
+            uploads_dir=tmp_path,
+            bucket="infra-agent-media-test",
+            region="us-east-1",
+            prefix="inspection-evidence",
+            client=fake_client,
+        ),
+    )
+
+    def fail_create_media(*args, **kwargs):
+        raise RuntimeError("database unavailable")
+
+    monkeypatch.setattr(api_module, "create_inspection_media", fail_create_media)
+    image_buffer = BytesIO()
+    Image.new("RGB", (1, 1), color=(255, 255, 255)).save(image_buffer, format="PNG")
+
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        client.post(
+            "/uploads/images/multipart",
+            files={"file": ("bridge-upload.png", image_buffer.getvalue(), "image/png")},
+        )
+
+    assert fake_client.uploads
+    _, bucket, key, _ = fake_client.uploads[0]
+    assert fake_client.deleted == [(bucket, key)]
 
 
 def test_upload_image_rejects_unsupported_extension() -> None:

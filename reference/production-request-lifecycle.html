@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Production Request Lifecycle</title>
+    <style>
+      :root { color-scheme: light; --paper:#fbfcfa; --ink:#17211d; --muted:#607068; --line:#d8dfda; --soft:#eef3f0; --accent:#176b62; }
+      body { margin:0; background:var(--paper); color:var(--ink); font-family:Avenir Next, Inter, system-ui, sans-serif; line-height:1.55; }
+      main { max-width:920px; margin:0 auto; padding:44px 28px 64px; }
+      h1 { margin:0 0 8px; font-size:30px; }
+      .lede { margin:0 0 28px; color:var(--muted); }
+      section { margin-top:24px; padding:18px; border:1px solid var(--line); border-radius:8px; background:white; }
+      h2 { margin:0 0 10px; font-size:18px; }
+      code, pre { background:var(--soft); border-radius:5px; }
+      code { padding:2px 5px; }
+      pre { padding:14px; overflow:auto; }
+      ol { margin:0; padding-left:22px; }
+      li { margin:8px 0; }
+      table { width:100%; border:1px solid var(--line); border-radius:8px; border-collapse:separate; border-spacing:0; overflow:hidden; background:white; }
+      th, td { padding:12px 14px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); }
+      tr:last-child td { border-bottom:none; }
+      th { background:var(--soft); color:var(--accent); font-size:13px; text-transform:uppercase; }
+      @media print { body{background:white;} main{padding:20px;} section,table{break-inside:avoid;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Production Request Lifecycle</h1>
+      <p class="lede">The durable handoff chain for Infrastructure AI Agent in an AWS-style deployment.</p>
+
+      <section>
+        <h2>Golden path</h2>
+        <ol>
+          <li>Browser submits request and media to FastAPI.</li>
+          <li>FastAPI uploads media bytes to S3.</li>
+          <li>FastAPI writes run metadata, prompt/notes, settings, and S3 media references to PostgreSQL/RDS.</li>
+          <li>FastAPI enqueues an RQ job in Redis/ElastiCache with <code>run_id</code>.</li>
+          <li>Worker loads run details from PostgreSQL and media from S3.</li>
+          <li>Worker executes the agent graph and writes progress/results to PostgreSQL.</li>
+          <li>API reads progress/results and returns them to the UI.</li>
+        </ol>
+      </section>
+
+      <section>
+        <h2>Ownership table</h2>
+        <table>
+          <thead>
+            <tr><th>Data</th><th>Owner</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Image/video bytes</td><td>S3</td></tr>
+            <tr><td>Prompt, notes, asset, runtime settings</td><td>PostgreSQL/RDS</td></tr>
+            <tr><td>Queued task pointer</td><td>Redis/ElastiCache + RQ</td></tr>
+            <tr><td>Inspection progress and final report</td><td>PostgreSQL/RDS</td></tr>
+            <tr><td>Generated report files or annotated images</td><td>S3, referenced by PostgreSQL</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>Rule</h2>
+        <p>Redis should coordinate work. PostgreSQL should preserve truth. S3 should preserve files.</p>
+      </section>
+    </main>
+  </body>
+</html>

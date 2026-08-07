@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AWS Deployment Map</title>
+    <style>
+      :root { color-scheme: light; --paper:#fbfcfa; --ink:#17211d; --muted:#607068; --line:#d8dfda; --soft:#eef3f0; --accent:#176b62; }
+      body { margin:0; background:var(--paper); color:var(--ink); font-family:Avenir Next, Inter, system-ui, sans-serif; line-height:1.55; }
+      main { max-width:920px; margin:0 auto; padding:44px 28px 64px; }
+      h1 { margin:0 0 8px; font-size:30px; }
+      .lede { margin:0 0 28px; color:var(--muted); }
+      table { width:100%; border:1px solid var(--line); border-radius:8px; border-collapse:separate; border-spacing:0; overflow:hidden; background:white; }
+      th, td { padding:12px 14px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); }
+      tr:last-child td { border-bottom:none; }
+      th { background:var(--soft); color:var(--accent); font-size:13px; text-transform:uppercase; }
+      code { background:var(--soft); border-radius:5px; padding:2px 5px; }
+      section { margin-top:24px; padding:18px; border:1px solid var(--line); border-radius:8px; background:white; }
+      h2 { margin:0 0 10px; font-size:18px; }
+      @media print { body{background:white;} main{padding:20px;} table,section{break-inside:avoid;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>AWS Deployment Map</h1>
+      <p class="lede">A quick reference for moving the Infrastructure AI Agent from local Docker Compose toward AWS.</p>
+
+      <table>
+        <thead>
+          <tr><th>Need</th><th>Local</th><th>AWS</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Web/API</td><td>FastAPI container</td><td>ECS service behind a load balancer</td></tr>
+          <tr><td>Background jobs</td><td>RQ worker container</td><td>ECS worker service</td></tr>
+          <tr><td>SQL persistence</td><td>PostgreSQL container</td><td>RDS for PostgreSQL</td></tr>
+          <tr><td>Queue/cache/progress</td><td>Redis container</td><td>ElastiCache Redis/Valkey</td></tr>
+          <tr><td>Image/video files</td><td><code>artifacts/uploads</code></td><td>S3 bucket and prefix</td></tr>
+          <tr><td>Secrets</td><td>Local <code>.env</code></td><td>Secrets Manager</td></tr>
+          <tr><td>Permissions</td><td>Local keys/profile</td><td>IAM task role</td></tr>
+        </tbody>
+      </table>
+
+      <section>
+        <h2>Deployment rule of thumb</h2>
+        <p>Move stateful services first: S3, RDS, and ElastiCache. Then move stateless compute: API and worker containers.</p>
+      </section>
+    </main>
+  </body>
+</html>

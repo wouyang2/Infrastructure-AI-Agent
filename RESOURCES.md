@@ -23,6 +23,18 @@
 - [Getting started with IAM](https://docs.aws.amazon.com/IAM/latest/UserGuide/getting-started.html)
   Official IAM getting-started guide. Use for: roles, users, permissions, and secure access patterns.
 
+- [Amazon ECS task definitions](https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definitions.html)
+  Official ECS documentation for describing containerized services. Use for: mapping the FastAPI and RQ worker containers to AWS deployment units.
+
+- [Amazon RDS for PostgreSQL common tasks](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.CommonTasks.html)
+  Official RDS PostgreSQL guide. Use for: replacing the Docker PostgreSQL container with a managed production database.
+
+- [What is Amazon ElastiCache?](https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/WhatIs.html)
+  Official ElastiCache overview. Use for: replacing the Docker Redis container with managed Redis/Valkey-compatible infrastructure.
+
+- [What is AWS Secrets Manager?](https://docs.aws.amazon.com/secretsmanager/latest/userguide/intro.html)
+  Official Secrets Manager overview. Use for: moving API keys, database URLs, and provider credentials out of local `.env` files.
+
 ## Wisdom (Communities)
 
 - [AWS re:Post](https://repost.aws/)

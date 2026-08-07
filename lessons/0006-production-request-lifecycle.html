@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Lesson 0006: Production Request Lifecycle</title>
+    <style>
+      :root { color-scheme: light; --paper:#f8faf8; --ink:#17211d; --muted:#5f6f67; --line:#d7dfda; --soft:#edf4f0; --accent:#176b62; --blue:#245a7a; --warn:#9b6316; }
+      body { margin:0; background:var(--paper); color:var(--ink); font-family:Avenir Next, Inter, system-ui, sans-serif; line-height:1.55; }
+      main { max-width:980px; margin:0 auto; padding:44px 28px 72px; }
+      .eyebrow { margin:0 0 6px; color:var(--accent); font-size:12px; font-weight:800; text-transform:uppercase; }
+      h1 { margin:0; font-size:34px; line-height:1.1; letter-spacing:0; }
+      .lede { max-width:78ch; color:var(--muted); font-size:16px; }
+      section { margin-top:28px; }
+      h2 { margin:0 0 12px; font-size:20px; }
+      h3 { margin:0 0 6px; font-size:15px; }
+      p { margin:0 0 12px; }
+      a { color:var(--accent); }
+      .grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:14px; }
+      .card, .exercise, .answer, .flow, table { border:1px solid var(--line); border-radius:8px; background:white; }
+      .card, .exercise, .answer, .flow { padding:16px 18px; }
+      .card strong, .flow strong { color:var(--accent); }
+      table { width:100%; border-collapse:separate; border-spacing:0; overflow:hidden; }
+      th, td { padding:12px 14px; text-align:left; vertical-align:top; border-bottom:1px solid var(--line); }
+      tr:last-child td { border-bottom:none; }
+      th { background:var(--soft); color:var(--blue); font-size:13px; text-transform:uppercase; }
+      code, pre { background:var(--soft); border-radius:5px; }
+      code { padding:2px 5px; }
+      pre { padding:14px; overflow:auto; }
+      ol { margin:0; padding-left:22px; }
+      li { margin:8px 0; }
+      details { margin-top:10px; }
+      summary { cursor:pointer; font-weight:800; color:var(--accent); }
+      .answer { margin-top:10px; background:#fbf7ee; border-color:#ead7b9; }
+      .warning { border-left:4px solid var(--warn); padding:12px 14px; background:#fff8ed; }
+      .sources { font-size:13px; color:var(--muted); }
+      @media (max-width:800px) { .grid { grid-template-columns:1fr; } main { padding:28px 18px 56px; } h1 { font-size:28px; } table { font-size:14px; } }
+      @media print { body{background:white;} main{padding:20px;} .card,.exercise,.answer,.flow,table{break-inside:avoid;} }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <p class="eyebrow">Lesson 0006 · Request lifecycle</p>
+        <h1>A production inspection run is a handoff chain, not one giant request.</h1>
+        <p class="lede">The browser starts the run, but S3, PostgreSQL, Redis/RQ, and the worker each own a different part. This keeps long AI workflows durable and resumable.</p>
+      </header>
+
+      <section>
+        <h2>The corrected workflow</h2>
+        <div class="flow">
+          <ol>
+            <li><strong>User submits request.</strong> The browser sends asset info, inspection notes, runtime settings, and media files to FastAPI.</li>
+            <li><strong>API stores media in S3.</strong> S3 stores image/video bytes. The API stores the S3 bucket/key metadata in PostgreSQL.</li>
+            <li><strong>API stores the run record in PostgreSQL.</strong> PostgreSQL becomes the durable source of truth for run status, asset info, prompt/notes, media references, and settings.</li>
+            <li><strong>API enqueues a lightweight RQ job in Redis.</strong> The job should usually contain only a <code>run_id</code>, not the full image or full request.</li>
+            <li><strong>Worker picks up the job.</strong> The worker loads the request from PostgreSQL and downloads the media from S3 when needed.</li>
+            <li><strong>Worker runs the agent graph.</strong> Evidence, severity, RAG, maintenance planning, scheduling, and report tools run in sequence with checkpoints/idempotency.</li>
+            <li><strong>Worker writes results to PostgreSQL.</strong> Progress, tool runs, final report JSON, rendered report, artifacts, and review status are persisted.</li>
+            <li><strong>API serves progress and results.</strong> The UI polls the API, and the API reads PostgreSQL/Redis/S3-backed records to show the current state.</li>
+          </ol>
+        </div>
+      </section>
+
+      <section>
+        <h2>Who owns what?</h2>
+        <table>
+          <thead>
+            <tr><th>Thing</th><th>Owner</th><th>Reason</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Image/video bytes</td>
+              <td>S3</td>
+              <td>Durable object storage. Containers can restart without losing uploaded media.</td>
+            </tr>
+            <tr>
+              <td>User prompt, notes, asset, settings</td>
+              <td>PostgreSQL/RDS</td>
+              <td>Structured, queryable, durable application state.</td>
+            </tr>
+            <tr>
+              <td>Queued work</td>
+              <td>Redis/ElastiCache + RQ</td>
+              <td>Fast temporary coordination between API and worker.</td>
+            </tr>
+            <tr>
+              <td>Long-running execution</td>
+              <td>RQ worker on ECS/EC2</td>
+              <td>Keeps AI workflow outside the web request timeout path.</td>
+            </tr>
+            <tr>
+              <td>Final report and audit trail</td>
+              <td>PostgreSQL/RDS, with S3 for file artifacts</td>
+              <td>Database stores records; S3 stores larger generated files if needed.</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section>
+        <h2>The common mistake</h2>
+        <div class="warning">
+          <p><strong>Do not put the whole request into Redis as the only copy.</strong> Redis is excellent for queues, cache, progress, and rate limits, but PostgreSQL should hold the durable inspection record.</p>
+        </div>
+        <p>A good RQ payload looks like this:</p>
+        <pre><code>{
+  "run_id": "run_178...",
+  "attempt": 1
+}</code></pre>
+        <p>The worker uses <code>run_id</code> to load everything else from PostgreSQL.</p>
+      </section>
+
+      <section>
+        <h2>What happens if something crashes?</h2>
+        <div class="grid">
+          <div class="card"><h3>API crashes after S3 upload</h3><p>The media is safe in S3. The run can be marked failed or retried if the DB record exists.</p></div>
+          <div class="card"><h3>Worker crashes mid-graph</h3><p>RQ retries the job. Tool-level idempotency and checkpoints prevent duplicate durable writes where possible.</p></div>
+          <div class="card"><h3>Redis loses a queue item</h3><p>PostgreSQL still has the run record. A reconciliation job can find stuck queued/running runs and re-enqueue them.</p></div>
+          <div class="card"><h3>S3 object is missing</h3><p>The worker should fail clearly, write an error to PostgreSQL, and show the UI that evidence retrieval failed.</p></div>
+        </div>
+      </section>
+
+      <section class="exercise">
+        <h2>Retrieval practice</h2>
+        <p><strong>Question:</strong> Why should the RQ job contain <code>run_id</code> instead of the uploaded image bytes?</p>
+        <details>
+          <summary>Show answer</summary>
+          <div class="answer">
+            <p>Because Redis should coordinate work, not become the durable file store. The image belongs in S3, while PostgreSQL stores the run and media reference.</p>
+          </div>
+        </details>
+      </section>
+
+      <section>
+        <h2>Reference</h2>
+        <p>Use <a href="../reference/production-request-lifecycle.html">Production Request Lifecycle</a> as the quick version of this lesson.</p>
+      </section>
+
+      <section class="sources">
+        <h2>Primary sources</h2>
+        <ul>
+          <li><a href="https://docs.aws.amazon.com/AmazonS3/latest/userguide/UsingObjects.html">AWS: Working with S3 objects</a></li>
+          <li><a href="https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/CHAP_PostgreSQL.CommonTasks.html">AWS: RDS for PostgreSQL common tasks</a></li>
+          <li><a href="https://docs.aws.amazon.com/AmazonElastiCache/latest/dg/WhatIs.html">AWS: What is Amazon ElastiCache?</a></li>
+          <li><a href="https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definitions.html">AWS: ECS task definitions</a></li>
+        </ul>
+        <p>Ask the agent follow-up questions on anything unclear. Good next question: “How would we implement a reconciliation job for stuck inspection runs?”</p>
+      </section>
+    </main>
+  </body>
+</html>

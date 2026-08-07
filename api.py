@@ -11,6 +11,10 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any, Literal
 
+from runtime.env_loader import load_dotenv_if_available
+
+load_dotenv_if_available()
+
 from fastapi import BackgroundTasks, Depends, FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,7 +23,6 @@ from sqlalchemy.orm import Session
 
 from agents.helpers.pdf_report import build_inspection_pdf
 from runtime.config_validation import configuration_status
-from runtime.env_loader import load_dotenv_if_available
 from runtime.job_status import fetch_runtime_job_status
 from runtime.job_queue import build_inspection_job_queue
 from runtime.progress_store import build_progress_store
@@ -41,8 +44,6 @@ from storage.repositories import (
     mark_inspection_canceled,
     update_inspection_review,
 )
-
-load_dotenv_if_available()
 
 AnalyzerMode = Literal["heuristic", "metadata", "openai", "roboflow"]
 VideoSamplerMode = Literal["mock", "opencv"]
@@ -986,20 +987,25 @@ def _record_stored_upload(
         content_type=content_type or _guess_content_type(original_name),
         media_type=media_type,
     )
-    media = create_inspection_media(
-        session,
-        media_type=media_type,
-        original_filename=original_name,
-        content_type=content_type or _guess_content_type(original_name),
-        size_bytes=output_path.stat().st_size,
-        checksum_sha256=checksum,
-        storage_backend=stored.storage_backend,
-        storage_key=stored.storage_key,
-        file_path=stored.file_path,
-        preview_url=stored.preview_url,
-        scan_status="not_scanned",
-        metadata=stored.metadata,
-    )
+    try:
+        media = create_inspection_media(
+            session,
+            media_type=media_type,
+            original_filename=original_name,
+            content_type=content_type or _guess_content_type(original_name),
+            size_bytes=output_path.stat().st_size,
+            checksum_sha256=checksum,
+            storage_backend=stored.storage_backend,
+            storage_key=stored.storage_key,
+            file_path=stored.file_path,
+            preview_url=stored.preview_url,
+            scan_status="not_scanned",
+            metadata=stored.metadata,
+        )
+    except Exception:
+        MEDIA_STORAGE.delete_file(stored)
+        output_path.unlink(missing_ok=True)
+        raise
     if stored.delete_local_after_record:
         output_path.unlink(missing_ok=True)
     response_class = ImageUploadResponse if media_type == "image" else VideoUploadResponse

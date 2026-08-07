@@ -4,6 +4,7 @@ import csv
 import json
 from datetime import datetime
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -3086,6 +3087,66 @@ def test_image_analysis_tool_reuses_completed_idempotent_output(monkeypatch) -> 
     assert calls["count"] == 1
     assert first_report.observations[0].description == "Image analysis collected once."
     assert second_report.observations[0].description == "Image analysis collected once."
+
+
+def test_image_analysis_tool_resolves_s3_media_before_analyzing(monkeypatch) -> None:
+    analyzed_paths = []
+
+    class FakeResolver:
+        def resolve(self, media_path):
+            return SimpleNamespace(
+                original_path=media_path,
+                local_path="artifacts/resolved_media/bridge_spalling_resolved.png",
+                storage_backend="s3",
+                storage_key="inspection-media/image/bridge_spalling.png",
+                bucket="infra-inspection-bucket",
+            )
+
+    class PathRecordingImageAnalyzer:
+        def analyze(self, image_path, asset_type):
+            analyzed_paths.append(image_path)
+            return [
+                ImageFinding(
+                    defect_type="spalling",
+                    description="Resolved S3 image was analyzed.",
+                    location_on_asset="girder face",
+                    confidence=0.8,
+                    severity_label="moderate",
+                )
+            ]
+
+    monkeypatch.setattr(
+        "workflows.inspection_graph.build_media_resolver",
+        lambda: FakeResolver(),
+    )
+    monkeypatch.setattr(
+        "workflows.inspection_graph.build_image_analyzer",
+        lambda *args, **kwargs: PathRecordingImageAnalyzer(),
+    )
+    input_values = {
+        "client_run_id": "s3_media_resolution_test_" + str(id(analyzed_paths)),
+        "asset_id": "S3-MEDIA-001",
+        "asset_type": "bridge",
+        "asset_name": "S3 Media Bridge",
+        "location": "North approach",
+        "criticality": "high",
+        "notes": "Inspection image submitted for S3 media resolution.",
+        "image_paths": ["s3://infra-inspection-bucket/inspection-media/image/bridge_spalling.png"],
+        "video_paths": [],
+        "reason": "s3_media_resolution_test",
+    }
+
+    report = _run_test_graph(
+        input_values,
+        enable_memory_checkpoint=False,
+    )
+
+    assert analyzed_paths == ["artifacts/resolved_media/bridge_spalling_resolved.png"]
+    assert report.observations[0].media_reference is not None
+    assert (
+        report.observations[0].media_reference.file_path
+        == "s3://infra-inspection-bucket/inspection-media/image/bridge_spalling.png"
+    )
 
 
 def test_openweather_context_tool_maps_forecast_payload() -> None:

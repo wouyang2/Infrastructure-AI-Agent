@@ -51,6 +51,7 @@ from runtime.checkpoints import get_checkpointer
 from runtime.env_loader import load_dotenv_if_available as _load_dotenv_if_available
 from runtime.tool_idempotency import run_json_tool_once, stable_json_hash
 from storage.database import SessionLocal, init_database
+from storage.media_resolver import build_media_resolver
 from storage.repositories import get_inspection_run, mark_inspection_completed
 
 
@@ -449,6 +450,7 @@ def build_inspection_graph(
         verification_confidence_threshold=verification_confidence_threshold,
         verifier_prompt_profile=verifier_prompt_profile,
     )
+    media_resolver = build_media_resolver()
     video_frame_sampler = build_video_frame_sampler(
         video_sampler_mode,
         interval_seconds=video_frame_interval_seconds,
@@ -614,11 +616,13 @@ def build_inspection_graph(
             for evidence in state["inspection_case"].evidence:
                 if evidence.modality != "video" or not evidence.file_path:
                     continue
-                for frame in video_frame_sampler.sample(evidence.file_path):
+                resolved_video = media_resolver.resolve(evidence.file_path)
+                for frame in video_frame_sampler.sample(resolved_video.local_path):
                     samples.append(
                         {
                             "source_id": evidence.source_id,
-                            "video_path": frame.video_path,
+                            "video_path": evidence.file_path,
+                            "resolved_video_path": resolved_video.local_path,
                             "image_path": frame.image_path,
                             "timestamp_seconds": frame.timestamp_seconds,
                         }
@@ -687,16 +691,17 @@ def build_inspection_graph(
             for evidence in state["inspection_case"].evidence:
                 if evidence.modality != "image" or not evidence.file_path:
                     continue
+                resolved_image = media_resolver.resolve(evidence.file_path)
                 results.append(
                     {
                         "source_id": evidence.source_id,
                         "source_modality": "image",
                         "source_file_path": evidence.file_path,
-                        "analyzed_image_path": evidence.file_path,
+                        "analyzed_image_path": resolved_image.local_path,
                         "frame_timestamp_seconds": evidence.frame_timestamp_seconds,
                         "findings": _image_findings_to_json(
                             image_analyzer.analyze(
-                                evidence.file_path,
+                                resolved_image.local_path,
                                 state["inspection_case"].asset.asset_type,
                             )
                         ),

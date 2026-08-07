@@ -51,6 +51,9 @@ class LocalMediaStorage:
             delete_local_after_record=False,
         )
 
+    def delete_file(self, stored: StoredMedia) -> None:
+        Path(stored.storage_key).unlink(missing_ok=True)
+
 
 class S3MediaStorage(LocalMediaStorage):
     def __init__(
@@ -129,6 +132,9 @@ class S3MediaStorage(LocalMediaStorage):
             },
             delete_local_after_record=_delete_local_after_s3_upload(),
         )
+
+    def delete_file(self, stored: StoredMedia) -> None:
+        self.client.delete_object(Bucket=self.bucket, Key=stored.storage_key)
 
     def _object_key(self, output_name: str, *, media_type: str) -> str:
         parts = [

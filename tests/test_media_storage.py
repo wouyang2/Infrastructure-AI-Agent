@@ -9,6 +9,7 @@ class FakeS3Client:
     def __init__(self) -> None:
         self.uploads = []
         self.presigned = []
+        self.deleted = []
 
     def upload_file(self, filename, bucket, key, ExtraArgs=None):
         self.uploads.append(
@@ -29,6 +30,9 @@ class FakeS3Client:
             }
         )
         return f"https://signed.example/{Params['Bucket']}/{Params['Key']}?expires={ExpiresIn}"
+
+    def delete_object(self, Bucket, Key):
+        self.deleted.append({"bucket": Bucket, "key": Key})
 
 
 def test_local_media_storage_uses_artifact_paths(tmp_path) -> None:
@@ -90,6 +94,31 @@ def test_s3_media_storage_uploads_and_returns_presigned_preview(tmp_path) -> Non
     assert stored.preview_url.startswith("https://signed.example/")
     assert stored.metadata["bucket"] == "infra-agent-media-dev"
     assert stored.metadata["region"] == "us-east-1"
+
+
+def test_s3_media_storage_can_delete_uploaded_object(tmp_path) -> None:
+    source_path = tmp_path / "bridge.png"
+    source_path.write_bytes(b"image")
+    client = FakeS3Client()
+    storage = S3MediaStorage(
+        uploads_dir=tmp_path,
+        bucket="infra-agent-media-dev",
+        region="us-east-1",
+        prefix="inspections",
+        client=client,
+    )
+
+    stored = storage.store_file(
+        source_path=source_path,
+        output_name="bridge.png",
+        content_type="image/png",
+        media_type="image",
+    )
+    storage.delete_file(stored)
+
+    assert client.deleted == [
+        {"bucket": "infra-agent-media-dev", "key": "inspections/image/bridge.png"}
+    ]
 
 
 def test_build_media_storage_uses_s3_when_configured(monkeypatch, tmp_path) -> None:

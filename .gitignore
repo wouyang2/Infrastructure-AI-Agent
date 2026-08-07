@@ -9,6 +9,7 @@ __pycache__/
 artifacts/video_frames/
 artifacts/uploads/
 artifacts/annotated_images/
+artifacts/resolved_media/
 artifacts/chroma/
 artifacts/crash_markers/
 artifacts/evals/
